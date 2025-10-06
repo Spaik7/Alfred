@@ -1,0 +1,30 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# --- Virtual environment ---
+myvenv/
+venv/
+.env/
+.venv/
+
+# --- Mac / Linux system files ---
+.DS_Store
+Thumbs.db
+
+# --- Model / data files (optional, comment out if needed) ---
+*.h5
+*.keras
+*.wav
+*.mp3
+*.npy
+*.npz
+*.csv
+*.pkl
+
+# --- Temporary folders ---
+.tmp/
+.cache/
