@@ -7,6 +7,7 @@ import subprocess
 import time
 from tqdm import tqdm
 from scipy.io.wavfile import write
+import gc  # add this at the top
 
 # =============================
 #        SPEECH OUTPUT
@@ -56,20 +57,20 @@ print(f"🎤 Using input device #{device_index}")
 
 # Load models
 wakeword_model = load_model_with_progress("WWD.h5")
-whisper_model = load_whisper_model("turbo")
+whisper_model = load_whisper_model("tiny")
 
 # =============================
 #       CONFIGURATION
 # =============================
 duration = 1.5        # seconds for wake word listening
-fs = 16000            # sample rate
+fs = 48000            # sample rate
 wake_word_name = "Alfred"
 wake_threshold = 0.9  # sensitivity threshold
 
 # =============================
 #     AUDIO HELPERS
 # =============================
-def record_audio(duration=1.5, rate=16000):
+def record_audio(duration=1.5, rate=48000):
     """Record audio snippet from selected device."""
     recording = sd.rec(int(duration * rate),
                        samplerate=rate,
@@ -79,7 +80,7 @@ def record_audio(duration=1.5, rate=16000):
     sd.wait()
     return recording.flatten()
 
-def extract_features(audio, sr=16000):
+def extract_features(audio, sr=48000):
     """Extract 40 MFCC features averaged over time (must match training)."""
     audio = librosa.util.normalize(audio)
     mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
@@ -101,29 +102,52 @@ while True:
         # Extract MFCC features
         features = extract_features(audio, sr=fs)
 
+        # Free raw audio if no longer needed
+        del audio
+        gc.collect()
+
         # Predict wake word
         prediction = wakeword_model.predict(features, verbose=0)
         wake_prob = float(prediction[0][1])
+
+        # Free features after prediction
+        del features
+        del prediction
+        gc.collect()
+
         print(f"Wake word probability: {wake_prob:.3f}")
 
         if wake_prob > wake_threshold:
             print("🚀 Wake word detected! Listening for command...")
-            # speak("Yes sir, what is your command?")  # disabled
             print("[TTS skipped] -> Yes sir, what is your command?")
 
             # Record longer audio for command
-            command_audio = record_audio(6, fs)
+            command_audio = record_audio(2, fs)
             write("last_command.wav", fs, (command_audio * 32767).astype(np.int16))
+
+            # Free command audio after saving
+            del command_audio
+            gc.collect()
 
             # Transcribe command using Whisper
             print("🎧 Transcribing command with Whisper...")
-            result = whisper_model.transcribe("last_command.wav", fp16=False)
+            result = whisper_model.transcribe(
+                "last_command.wav",
+                fp16=False,
+                language="it",
+                temperature=0.0,
+                condition_on_previous_text=False,
+            )
             command = result["text"].strip()
 
             print(f"🗣 You said: {command}")
             if command:
-                # speak(f"You said: {command}")  # disabled
                 print(f"[TTS skipped] -> You said: {command}")
+
+            # Free transcription result
+            del result
+            del command
+            gc.collect()
 
             print("Listening again...\n")
 
