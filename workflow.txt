@@ -1,0 +1,11 @@
+# 1. Setup directory for training
+python precise_trainer.py "Alfred" --step setup
+
+# 2. Record your audio samples
+python precise_recorder.py --wake-word "Alfred"
+
+# 3. Train the model
+python precise_trainer.py "Alfred"
+
+# 4. Test the model
+python precise_listen_fixed.py models/alfred.net
