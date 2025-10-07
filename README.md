@@ -42,7 +42,7 @@ jarvis/
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/Spaik7/Alfred.git
 cd jarvis
 ```
 
@@ -84,6 +84,8 @@ from tensorflow.keras.models import Sequential
 ```bash
 python precise_trainer.py "Name" --step setup
 ```
+Replace "Name" with the Wake up Word/phrase you want to use 
+I used "Alfred", you could use anything like "hey Jesus" or "hey Pi" or single word like i did
 
 
 #### Step 2: Record Audio Samples
@@ -97,8 +99,13 @@ This will guide you through recording:
 - 150 wake word samples (saying "Alfred")
 - 300 not-wake-word samples (random speech/noise)
 
+With 150 sample should be good, by default is set to 50, but you could run into some problem with the trainer/test with few sample
+
 **Manual Recording Options**
 ```bash
+# Display help message for instruction
+python precise_recorder.py -h 
+
 # Record only wake word samples
 python precise_recorder.py --mode wake --count 150
 
@@ -141,6 +148,9 @@ python precise_test.py models/alfred.net
 # Custom threshold
 python precise_test.py models/alfred.net --threshold 0.7
 ```
+
+**Advice**
+Use the custom threshold and test the model to see how much it work and then implement it to the code 
 
 ### 2. Running the Voice Assistant
 
@@ -197,6 +207,23 @@ python alfred.py
 
 ### Tips for Better Accuracy
 1. Record in different environments (quiet, noisy, echo)
+1.1 Do 70% of Wake up recording into quiet environments and 30% with something
+    playing (music, tv, people talking)
+    So on the 150 sample that i reccomend: 
+    Clean/Quiet Samples (70% = 105 total)
+
+    Train: ~90 samples (clean, quiet room)
+    Test: ~15 samples (clean, quiet room)
+
+    Noisy Samples (30% = 45 total)
+
+    Train: ~38 samples (with music/TV/background noise)
+    Test: ~7 samples (with music/TV/background noise)
+
+    Samples 1-90: Quiet room, various volumes/speeds
+    Samples 91-128: Turn on music/TV, record with background noise
+    Samples 129-144: Test set - quiet (these go to test folder automatically)
+    Samples 145-150: Test set - noisy (these go to test folder automatically)
 2. Vary your speaking speed and tone
 3. Include similar-sounding words in not-wake-word samples
 4. Record background noise (TV, music, conversations)
