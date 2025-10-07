@@ -209,6 +209,7 @@ python alfred.py
 1. Record in different environments (quiet, noisy, echo)
 1.1 Do 70% of Wake up recording into quiet environments and 30% with something
     playing (music, tv, people talking)
+    
     So on the 150 sample that i reccomend: 
     Clean/Quiet Samples (70% = 105 total)
 
