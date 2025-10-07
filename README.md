@@ -218,12 +218,15 @@ python alfred.py
 
     Noisy Samples (30% = 45 total)
 
-    Train: ~38 samples (with music/TV/background noise)
+    Train: ~38 samples (with music/TV/background noise) \n
     Test: ~7 samples (with music/TV/background noise)
 
     Samples 1-90: Quiet room, various volumes/speeds
+    
     Samples 91-128: Turn on music/TV, record with background noise
+    
     Samples 129-144: Test set - quiet (these go to test folder automatically)
+    
     Samples 145-150: Test set - noisy (these go to test folder automatically)
 2. Vary your speaking speed and tone
 3. Include similar-sounding words in not-wake-word samples
