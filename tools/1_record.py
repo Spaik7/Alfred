@@ -16,7 +16,7 @@ from scipy import signal
 
 
 class AudioRecorder:
-    def __init__(self, base_dir="precise_data", sample_rate=16000, channels=1, recording_rate=48000):
+    def __init__(self, base_dir="data", sample_rate=16000, channels=1, recording_rate=48000):
         self.base_dir = Path(base_dir)
         self.target_sample_rate = sample_rate  # What we want (16kHz for Precise)
         self.recording_sample_rate = recording_rate  # What device uses (48kHz)
@@ -172,11 +172,11 @@ class AudioRecorder:
             stream.stop_stream()
             stream.close()
     
-    def record_session(self, sample_type, target_count=50, duration=3, 
-                      test_split=0.15, device_index=None, resume=False):
+    def record_session(self, sample_type, target_count=50, duration=3,
+                      test_split=0.15, device_index=None, resume=False, auto_mode=False):
         """
         Interactive recording session
-        
+
         Args:
             sample_type: 'wake' or 'not-wake'
             target_count: Number of samples to record
@@ -184,6 +184,7 @@ class AudioRecorder:
             test_split: Percentage of samples to put in test set
             device_index: Audio device index (None for default)
             resume: Continue from existing recordings
+            auto_mode: Automatically record without waiting for Enter (useful for not-wake-word samples)
         """
         self.setup_directories()
         
@@ -229,10 +230,14 @@ class AudioRecorder:
         print(f"Train dir: {train_dir}")
         print(f"Test dir: {test_dir}")
         print("\nControls:")
-        print("  [Enter]  - Start recording")
-        print("  's'      - Skip (don't save)")
-        print("  'p'      - Play back last recording")
-        print("  'q'      - Quit session")
+        if auto_mode:
+            print("  AUTO MODE: Recording automatically with 3-second countdown")
+            print("  Press Ctrl+C to pause/quit")
+        else:
+            print("  [Enter]  - Start recording")
+            print("  's'      - Skip (don't save)")
+            print("  'p'      - Play back last recording")
+            print("  'q'      - Quit session")
         print("=" * 60)
         
         recorded = recorded_start
@@ -240,67 +245,87 @@ class AudioRecorder:
         train_samples = target_count - test_samples
         
         last_filepath = None
-        
-        while recorded < target_count:
-            # Determine if this should be train or test
-            if recorded < train_samples:
-                target_dir = train_dir
-                split_type = "TRAIN"
-            else:
-                target_dir = test_dir
-                split_type = "TEST"
-            
-            print(f"\n[{recorded + 1}/{target_count}] ({split_type}) ", end='')
-            
-            if sample_type == 'wake':
-                print("Say the wake word")
-            else:
-                print("Say anything else or make noise")
-            
-            command = input("Ready? [Enter/s/p/q]: ").strip().lower()
-            
-            if command == 'q':
-                print(f"\n✓ Session paused at {recorded}/{target_count} samples")
-                print(f"   Run with --resume to continue later")
-                break
-            elif command == 's':
-                print("⊘ Skipped")
-                continue
-            elif command == 'p':
-                if last_filepath and last_filepath.exists():
-                    self.play_audio(last_filepath)
+
+        try:
+            while recorded < target_count:
+                # Determine if this should be train or test
+                if recorded < train_samples:
+                    target_dir = train_dir
+                    split_type = "TRAIN"
                 else:
-                    print("⚠ No recording to play back")
-                continue
-            
-            # Countdown
-            print("Recording in: ", end='', flush=True)
-            for i in range(3, 0, -1):
-                print(f"{i}...", end='', flush=True)
-                time.sleep(1)
-            print()
-            
-            # Record
-            audio_data = self.record_audio(duration, device_index)
-            
-            # Save
-            filepath = self.get_next_filename(target_dir)
-            self.save_audio(audio_data, filepath)
-            last_filepath = filepath
-            
-            print(f"💾 Saved: {filepath.name}")
-            
-            # Ask to replay
-            replay = input("Play back? [y/N]: ").strip().lower()
-            if replay == 'y':
-                self.play_audio(filepath)
-                keep = input("Keep this recording? [Y/n]: ").strip().lower()
-                if keep == 'n':
-                    filepath.unlink()
-                    print("🗑️  Deleted")
-                    continue
-            
-            recorded += 1
+                    target_dir = test_dir
+                    split_type = "TEST"
+
+                print(f"\n[{recorded + 1}/{target_count}] ({split_type}) ", end='')
+
+                if sample_type == 'wake':
+                    print("Say the wake word")
+                else:
+                    print("Say anything else or make noise")
+
+                # Auto mode or interactive mode
+                if auto_mode:
+                    # Countdown
+                    print("Recording in: ", end='', flush=True)
+                    for i in range(3, 0, -1):
+                        print(f"{i}...", end='', flush=True)
+                        time.sleep(1)
+                    print()
+                else:
+                    command = input("Ready? [Enter/s/p/q]: ").strip().lower()
+
+                    if command == 'q':
+                        print(f"\n✓ Session paused at {recorded}/{target_count} samples")
+                        print(f"   Run with --resume to continue later")
+                        break
+                    elif command == 's':
+                        print("⊘ Skipped")
+                        continue
+                    elif command == 'p':
+                        if last_filepath and last_filepath.exists():
+                            self.play_audio(last_filepath)
+                        else:
+                            print("⚠ No recording to play back")
+                        continue
+
+                    # Countdown
+                    print("Recording in: ", end='', flush=True)
+                    for i in range(3, 0, -1):
+                        print(f"{i}...", end='', flush=True)
+                        time.sleep(1)
+                    print()
+
+                # Record
+                audio_data = self.record_audio(duration, device_index)
+
+                # Save
+                filepath = self.get_next_filename(target_dir)
+                self.save_audio(audio_data, filepath)
+                last_filepath = filepath
+
+                print(f"💾 Saved: {filepath.name}")
+
+                # Ask to replay (only in interactive mode)
+                if not auto_mode:
+                    replay = input("Play back? [y/N]: ").strip().lower()
+                    if replay == 'y':
+                        self.play_audio(filepath)
+                        keep = input("Keep this recording? [Y/n]: ").strip().lower()
+                        if keep == 'n':
+                            filepath.unlink()
+                            print("🗑️  Deleted")
+                            continue
+
+                recorded += 1
+
+                # In auto mode, add a small delay between recordings
+                if auto_mode and recorded < target_count:
+                    time.sleep(0.5)
+
+        except KeyboardInterrupt:
+            print(f"\n\n⚠ Interrupted by user")
+            print(f"✓ Session paused at {recorded}/{target_count} samples")
+            print(f"   Run with --resume to continue later")
         
         print("\n" + "=" * 60)
         if recorded >= target_count:
@@ -310,11 +335,13 @@ class AudioRecorder:
         print(f"Total recorded: {recorded} samples")
         print("=" * 60)
     
-    def guided_recording(self, wake_word_phrase, wake_count=150, device_index=None, resume=False):
+    def guided_recording(self, wake_word_phrase, wake_count=150, device_index=None, resume=False, auto_not_wake=False):
         """Guided recording session for complete dataset"""
         # Calculate not-wake count (2x wake count recommended)
         not_wake_count = int(wake_count * 2)
-        
+
+        self.setup_directories()
+
         print("\n" + "=" * 60)
         print("Mycroft Precise - Guided Recording Session")
         print("=" * 60)
@@ -323,38 +350,70 @@ class AudioRecorder:
         print(f"  1. Wake word samples: {wake_count}")
         print(f"  2. Not-wake-word samples: {not_wake_count} (2x wake count)")
         print("=" * 60)
-        
-        # Step 1: Wake word samples
-        print("\n📍 STEP 1: Wake Word Samples")
-        print(f"Say '{wake_word_phrase}' clearly each time")
-        input("Press Enter to start...")
-        
-        self.record_session(
-            sample_type='wake',
-            target_count=wake_count,
-            duration=3,
-            test_split=0.15,
-            device_index=device_index,
-            resume=resume
-        )
-        
-        # Step 2: Not-wake-word samples
-        print("\n📍 STEP 2: Not-Wake-Word Samples")
-        print("Say anything EXCEPT the wake word:")
-        print("  - Random phrases")
-        print("  - Similar sounding words")
-        print("  - Background noise")
-        print("  - Music, TV sounds, etc.")
-        input("Press Enter to start...")
-        
-        self.record_session(
-            sample_type='not-wake',
-            target_count=not_wake_count,
-            duration=3,
-            test_split=0.15,
-            device_index=device_index,
-            resume=resume
-        )
+
+        # Check existing wake word samples
+        wake_train = len(list(self.dirs['train_wake'].glob('sample_*.wav')))
+        wake_test = len(list(self.dirs['test_wake'].glob('sample_*.wav')))
+        wake_total = wake_train + wake_test
+
+        # Step 1: Wake word samples (skip if already complete)
+        if wake_total >= wake_count:
+            print(f"\n📍 STEP 1: Wake Word Samples - ✓ COMPLETE")
+            print(f"   Found {wake_total} existing samples ({wake_train} train, {wake_test} test)")
+            print(f"   Skipping wake word recording...")
+        else:
+            print(f"\n📍 STEP 1: Wake Word Samples")
+            if wake_total > 0:
+                print(f"   Found {wake_total} existing samples, need {wake_count - wake_total} more")
+            print(f"Say '{wake_word_phrase}' clearly each time")
+            input("Press Enter to start...")
+
+            self.record_session(
+                sample_type='wake',
+                target_count=wake_count,
+                duration=3,
+                test_split=0.15,
+                device_index=device_index,
+                resume=resume,
+                auto_mode=False  # Wake word always interactive
+            )
+
+        # Check existing not-wake-word samples
+        not_wake_train = len(list(self.dirs['train_not_wake'].glob('sample_*.wav')))
+        not_wake_test = len(list(self.dirs['test_not_wake'].glob('sample_*.wav')))
+        not_wake_total = not_wake_train + not_wake_test
+
+        # Step 2: Not-wake-word samples (skip if already complete)
+        if not_wake_total >= not_wake_count:
+            print(f"\n📍 STEP 2: Not-Wake-Word Samples - ✓ COMPLETE")
+            print(f"   Found {not_wake_total} existing samples ({not_wake_train} train, {not_wake_test} test)")
+            print(f"   Skipping not-wake-word recording...")
+        else:
+            print(f"\n📍 STEP 2: Not-Wake-Word Samples")
+            if not_wake_total > 0:
+                print(f"   Found {not_wake_total} existing samples, need {not_wake_count - not_wake_total} more")
+            print("Say anything EXCEPT the wake word:")
+            print("  - Random phrases")
+            print("  - Similar sounding words")
+            print("  - Background noise")
+            print("  - Music, TV sounds, etc.")
+
+            if auto_not_wake:
+                print("\n🤖 AUTO MODE ENABLED: Recordings will start automatically")
+                print("   Just talk, play music, or make noise continuously")
+                print("   Press Ctrl+C to pause/stop")
+
+            input("Press Enter to start...")
+
+            self.record_session(
+                sample_type='not-wake',
+                target_count=not_wake_count,
+                duration=3,
+                test_split=0.15,
+                device_index=device_index,
+                resume=resume,
+                auto_mode=auto_not_wake  # Use auto mode if enabled
+            )
         
         # Summary
         self.print_summary()
@@ -417,15 +476,20 @@ def main():
     )
     parser.add_argument(
         '--data-dir',
-        default='precise_data',
-        help='Base directory for data (default: precise_data)'
+        default='data',
+        help='Base directory for data (default: data)'
     )
     parser.add_argument(
         '--resume', '-r',
         action='store_true',
         help='Resume from existing recordings'
     )
-    
+    parser.add_argument(
+        '--auto',
+        action='store_true',
+        help='Auto-record mode for not-wake-word samples (no Enter key required)'
+    )
+
     args = parser.parse_args()
     
     recorder = AudioRecorder(base_dir=args.data_dir, recording_rate=48000)
@@ -439,10 +503,11 @@ def main():
             if not args.wake_word:
                 args.wake_word = input("Enter your wake word phrase: ").strip()
             recorder.guided_recording(
-                args.wake_word, 
+                args.wake_word,
                 wake_count=args.count,
-                device_index=args.device, 
-                resume=args.resume
+                device_index=args.device,
+                resume=args.resume,
+                auto_not_wake=args.auto
             )
         elif args.mode == 'wake':
             recorder.record_session(
@@ -450,7 +515,8 @@ def main():
                 target_count=args.count,
                 duration=args.duration,
                 device_index=args.device,
-                resume=args.resume
+                resume=args.resume,
+                auto_mode=False  # Wake word never uses auto mode
             )
         elif args.mode == 'not-wake':
             recorder.record_session(
@@ -458,7 +524,8 @@ def main():
                 target_count=args.count,
                 duration=args.duration,
                 device_index=args.device,
-                resume=args.resume
+                resume=args.resume,
+                auto_mode=args.auto  # Use auto mode if --auto flag is set
             )
     
     finally:

@@ -1,0 +1,22 @@
+# Wake Word Detection with PyTorch
+# Lightweight custom wake word detector optimized for Raspberry Pi
+
+# Core ML framework (CPU version for RPi compatibility)
+--index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+torchaudio
+
+# Audio processing
+librosa
+pyaudio
+soundfile
+tqdm
+
+# Utilities
+numpy
+tqdm
+
+# Optional: For ONNX export (faster inference on RPi)
+# onnx
+# onnxruntime
