@@ -1,0 +1,1040 @@
+{
+  "project": {
+    "name": "Alfred - Batman's Butler AI Assistant",
+    "version": "1.0.0",
+    "description": "Voice-activated AI assistant on Raspberry Pi 5 with Mac integration",
+    "personality": "British butler - formal, helpful, dry humor, bilingual (Italian/English)",
+    "status": "Phase 1 Ready"
+  },
+  "architecture": {
+    "raspberry_pi": {
+      "role": "Main brain",
+      "components": [
+        "Wake word detection (ONNX)",
+        "Ollama reasoning (Phi-3/Gemma 2B-3B)",
+        "Function orchestration",
+        "TTS output",
+        "System monitoring"
+      ]
+    },
+    "mac": {
+      "role": "Application host",
+      "access_method": "SSH + AppleScript",
+      "applications": [
+        "Apple Mail",
+        "Apple Calendar",
+        "Telegram Desktop",
+        "WhatsApp Desktop",
+        "Spotify",
+        "Development tools (VS Code, PyCharm)",
+        "Productivity apps"
+      ]
+    },
+    "mac_docker": {
+      "role": "Whisper transcription service",
+      "endpoint": "http://192.168.1.5:9999/audio"
+    }
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation",
+      "duration": "Week 1-2",
+      "goal": "Core infrastructure + basic information queries",
+      "tasks": [
+        {
+          "id": "1.1",
+          "name": "Project Structure Setup",
+          "priority": "critical",
+          "files": [
+            "alfred.py - Main orchestrator",
+            "config.py - Configuration & API keys",
+            "requirements.txt - Python dependencies",
+            "ssh_helper.py - SSH utilities",
+            "intents.py - Ollama intent parser",
+            "response_generator.py - NL responses",
+            "tts_engine.py - Text-to-speech",
+            "security.py - PIN verification",
+            "functions/__init__.py",
+            "functions/weather.py",
+            "functions/time_date.py",
+            "functions/system.py",
+            "functions/calculations.py",
+            "functions/general.py"
+          ],
+          "status": "todo"
+        },
+        {
+          "id": "1.2",
+          "name": "Core Components",
+          "priority": "critical",
+          "subtasks": [
+            {
+              "task": "Integrate Ollama for intent parsing",
+              "status": "todo"
+            },
+            {
+              "task": "Build response generator (templates + LLM)",
+              "status": "todo"
+            },
+            {
+              "task": "Setup TTS engine (espeak-ng or pyttsx3)",
+              "status": "todo"
+            },
+            {
+              "task": "Implement logging system",
+              "status": "todo"
+            },
+            {
+              "task": "Create error handling framework",
+              "status": "todo"
+            },
+            {
+              "task": "Build configuration management",
+              "status": "todo"
+            }
+          ]
+        },
+        {
+          "id": "1.3",
+          "name": "Basic Functions",
+          "priority": "high",
+          "functions": [
+            {
+              "name": "Weather queries",
+              "api": "OpenWeatherMap",
+              "status": "todo"
+            },
+            {
+              "name": "Time and date",
+              "status": "todo"
+            },
+            {
+              "name": "System monitoring (CPU, RAM, temp)",
+              "status": "todo"
+            },
+            {
+              "name": "Simple calculations",
+              "status": "todo"
+            },
+            {
+              "name": "Jokes and general chat",
+              "status": "todo"
+            }
+          ]
+        },
+        {
+          "id": "1.4",
+          "name": "Personality System",
+          "priority": "high",
+          "features": [
+            "Response templates with Alfred's personality",
+            "Italian/English language detection",
+            "Formal British phrases",
+            "Dry humor responses",
+            "Context-aware tone adjustment"
+          ],
+          "example_phrases": {
+            "greetings": [
+              "Good day, sir",
+              "At your service",
+              "Buongiorno, signore"
+            ],
+            "acknowledgments": [
+              "Very well, sir",
+              "As you wish",
+              "Certamente"
+            ],
+            "errors": [
+              "I'm afraid I cannot do that, sir",
+              "That appears to be beyond my capabilities",
+              "Mi dispiace, non posso farlo"
+            ]
+          }
+        }
+      ],
+      "deliverable": "Alfred can answer basic questions with personality",
+      "success_criteria": [
+        "Alfred responds to wake word",
+        "Answers weather, time, system queries",
+        "Speaks with British butler personality",
+        "Switches between Italian and English"
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Mac Integration via SSH",
+      "duration": "Week 3-4",
+      "goal": "Remote control of Mac applications",
+      "tasks": [
+        {
+          "id": "2.1",
+          "name": "SSH Infrastructure",
+          "priority": "critical",
+          "subtasks": [
+            "SSH key authentication setup",
+            "AppleScript execution wrapper",
+            "Connection pooling for performance",
+            "Error handling for connection failures",
+            "Retry logic"
+          ]
+        },
+        {
+          "id": "2.2",
+          "name": "Apple Mail Integration",
+          "priority": "high",
+          "file": "functions/email.py",
+          "functions": [
+            "check_unread_count()",
+            "get_recent_emails(count=5)",
+            "get_emails_from_sender(sender_name)",
+            "search_emails(keyword)",
+            "read_email_content(email_id)",
+            "send_email(to, subject, body) - PIN required",
+            "reply_to_email(email_id, body) - PIN required",
+            "mark_as_read(email_id)",
+            "delete_email(email_id) - PIN required"
+          ]
+        },
+        {
+          "id": "2.3",
+          "name": "Apple Calendar Integration",
+          "priority": "high",
+          "file": "functions/calendar.py",
+          "functions": [
+            "get_todays_events()",
+            "get_weeks_schedule()",
+            "get_next_event()",
+            "check_availability(time)",
+            "find_free_slots(duration, date)",
+            "create_event(title, start, duration) - PIN required",
+            "modify_event(event_id, changes) - PIN required",
+            "delete_event(event_id) - PIN required",
+            "get_event_details(event_id)"
+          ]
+        },
+        {
+          "id": "2.4",
+          "name": "Mac Application Control",
+          "priority": "medium",
+          "file": "functions/mac_control.py",
+          "functions": [
+            "open_application(app_name)",
+            "close_application(app_name)",
+            "is_app_running(app_name)",
+            "take_screenshot()",
+            "lock_screen()",
+            "sleep_mac()",
+            "shutdown_mac() - PIN required",
+            "set_volume(level)",
+            "set_brightness(level)"
+          ]
+        },
+        {
+          "id": "2.5",
+          "name": "PIN Security System",
+          "priority": "critical",
+          "file": "security.py",
+          "features": [
+            "PIN storage (bcrypt hashed)",
+            "PIN verification",
+            "Sensitive action detection",
+            "PIN prompt via TTS",
+            "Failed attempt tracking",
+            "Lockout after 3 failures",
+            "PIN reset mechanism"
+          ],
+          "sensitive_actions": [
+            "send_email",
+            "delete_email",
+            "create_event",
+            "modify_event",
+            "delete_event",
+            "shutdown_mac",
+            "deploy_code"
+          ]
+        }
+      ],
+      "deliverable": "Alfred can read/send emails, manage calendar, control Mac",
+      "success_criteria": [
+        "Can read and send emails",
+        "Manages calendar events",
+        "Opens Mac applications remotely",
+        "PIN protection works for sensitive actions"
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Messaging Integration",
+      "duration": "Week 5-6",
+      "goal": "Telegram and WhatsApp messaging",
+      "tasks": [
+        {
+          "id": "3.1",
+          "name": "Telegram Bot",
+          "priority": "high",
+          "file": "functions/telegram.py",
+          "setup": [
+            "Create bot with @BotFather",
+            "Get bot token",
+            "Get your chat_id",
+            "Test bot communication"
+          ],
+          "functions": [
+            "send_message(contact, text)",
+            "send_group_message(group, text)",
+            "get_recent_messages(count=10)",
+            "read_messages_from(person)",
+            "forward_message(message_id, to)",
+            "send_photo(contact, photo_path)",
+            "send_file(contact, file_path)",
+            "create_poll(chat, question, options)",
+            "get_chat_list()"
+          ]
+        },
+        {
+          "id": "3.2",
+          "name": "WhatsApp Integration",
+          "priority": "medium",
+          "file": "functions/whatsapp.py",
+          "implementation_options": [
+            "pywhatkit (free, limited)",
+            "Twilio WhatsApp API (paid, reliable)"
+          ],
+          "functions": [
+            "send_message(contact, text)",
+            "get_recent_messages() - if possible",
+            "send_to_multiple(contacts, text)",
+            "schedule_message(contact, text, time)"
+          ]
+        },
+        {
+          "id": "3.3",
+          "name": "Contact Management",
+          "priority": "medium",
+          "file": "functions/contacts.py",
+          "functions": [
+            "load_contacts() - from Mac Address Book",
+            "search_contact(name)",
+            "get_contact_info(name)",
+            "fuzzy_match_name(partial_name)",
+            "add_nickname(contact, nickname)"
+          ]
+        }
+      ],
+      "deliverable": "Alfred can send/receive messages via Telegram and WhatsApp",
+      "success_criteria": [
+        "Sends Telegram messages",
+        "Sends WhatsApp messages",
+        "Finds contacts by name or nickname"
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Media & Development Tools",
+      "duration": "Week 7-8",
+      "goal": "Spotify control and developer workflows",
+      "tasks": [
+        {
+          "id": "4.1",
+          "name": "Spotify Integration",
+          "priority": "medium",
+          "file": "functions/spotify.py",
+          "setup": [
+            "Create Spotify Developer account",
+            "Get API credentials",
+            "Implement OAuth flow"
+          ],
+          "functions": [
+            "authenticate()",
+            "play_track(track_name)",
+            "play_artist(artist_name)",
+            "play_album(album_name)",
+            "pause()",
+            "resume()",
+            "next_track()",
+            "previous_track()",
+            "set_volume(level)",
+            "get_current_playing()",
+            "add_to_playlist(track, playlist)",
+            "search_tracks(query)",
+            "play_user_playlist(playlist_name)"
+          ]
+        },
+        {
+          "id": "4.2",
+          "name": "Developer Workflows",
+          "priority": "high",
+          "file": "functions/development.py",
+          "functions": [
+            "open_project(project_name, ide='vscode')",
+            "run_tests(project_path)",
+            "start_dev_server(project_path)",
+            "stop_dev_server(project_path)",
+            "git_pull(repo_path)",
+            "git_status(repo_path)",
+            "git_commit(repo_path, message) - PIN required",
+            "docker_ps()",
+            "docker_restart(container)",
+            "check_service_status(service_name)",
+            "view_logs(service, lines=50)",
+            "deploy_staging() - PIN required"
+          ]
+        },
+        {
+          "id": "4.3",
+          "name": "GitHub Integration (Optional)",
+          "priority": "low",
+          "file": "functions/github.py",
+          "functions": [
+            "get_repo_status(repo)",
+            "list_pull_requests(repo)",
+            "get_latest_commits(repo, count=5)",
+            "check_ci_status(repo)",
+            "create_issue(repo, title, description)"
+          ]
+        }
+      ],
+      "deliverable": "Alfred controls music and helps with development",
+      "success_criteria": [
+        "Controls Spotify playback",
+        "Runs development commands on Mac",
+        "Checks code repositories"
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Context-Aware Intelligence",
+      "duration": "Week 9-10",
+      "goal": "Complex queries combining multiple data sources",
+      "tasks": [
+        {
+          "id": "5.1",
+          "name": "Advanced Query Handler",
+          "priority": "high",
+          "file": "functions/advanced_queries.py",
+          "queries": [
+            {
+              "query": "What should I wear today?",
+              "data_sources": ["weather", "calendar", "clothing_db"],
+              "logic": "Check weather + temp → Check calendar for formal events → Suggest outfit"
+            },
+            {
+              "query": "Should I leave now?",
+              "data_sources": ["calendar", "traffic_api", "location"],
+              "logic": "Next meeting location + current traffic → Calculate travel time → Recommend departure"
+            },
+            {
+              "query": "Can I go for a run?",
+              "data_sources": ["weather", "air_quality", "calendar", "last_run_time"],
+              "logic": "Check weather + air quality → Check calendar for time → Check last run → Advise"
+            },
+            {
+              "query": "Summary of my day",
+              "data_sources": ["calendar", "email", "tasks", "weather"],
+              "logic": "Compile all events + unread emails + pending tasks + weather → Generate summary"
+            },
+            {
+              "query": "Good morning",
+              "data_sources": ["weather", "calendar", "email", "news"],
+              "logic": "Weather forecast + today's events + top emails + news headlines → Morning briefing"
+            },
+            {
+              "query": "What's urgent?",
+              "data_sources": ["email", "calendar", "tasks"],
+              "logic": "Flagged emails + events starting soon + due tasks → Priority list"
+            }
+          ]
+        },
+        {
+          "id": "5.2",
+          "name": "Context Management",
+          "priority": "high",
+          "file": "context_manager.py",
+          "features": [
+            "Maintain conversation context",
+            "Remember previous queries",
+            "Handle follow-up questions",
+            "Track user preferences",
+            "Learn from interactions"
+          ],
+          "example_flow": {
+            "user1": "What's the weather?",
+            "alfred1": "It's 18°C and sunny in Turin",
+            "user2": "Should I take an umbrella?",
+            "alfred2": "No sir, no rain expected today"
+          }
+        },
+        {
+          "id": "5.3",
+          "name": "Proactive Suggestions",
+          "priority": "medium",
+          "file": "proactive.py",
+          "features": [
+            {
+              "trigger": "Morning wake time",
+              "action": "Morning briefing"
+            },
+            {
+              "trigger": "15 min before meeting",
+              "action": "Meeting reminder + travel time"
+            },
+            {
+              "trigger": "Rain forecast detected",
+              "action": "Weather alert"
+            },
+            {
+              "trigger": "Task deadline approaching",
+              "action": "Task reminder"
+            },
+            {
+              "trigger": "Contact's birthday",
+              "action": "Birthday reminder"
+            },
+            {
+              "trigger": "Traffic increasing",
+              "action": "Travel time alert for next meeting"
+            }
+          ]
+        }
+      ],
+      "deliverable": "Alfred provides intelligent, context-aware assistance",
+      "success_criteria": [
+        "Handles complex context-aware queries",
+        "Provides morning briefings",
+        "Gives proactive suggestions"
+      ]
+    },
+    {
+      "phase": 6,
+      "name": "Productivity & Automation",
+      "duration": "Week 11-12",
+      "goal": "Notes, tasks, and workflow automation",
+      "tasks": [
+        {
+          "id": "6.1",
+          "name": "Notes & Tasks",
+          "priority": "medium",
+          "file": "functions/productivity.py",
+          "integration_options": [
+            "Apple Notes",
+            "Notion API",
+            "Todoist",
+            "Apple Reminders"
+          ],
+          "functions": [
+            "create_note(title, content)",
+            "add_to_shopping_list(items)",
+            "create_task(title, due_date)",
+            "mark_task_complete(task_id)",
+            "get_task_list(filter='all')",
+            "search_notes(keyword)",
+            "set_reminder(text, time)"
+          ]
+        },
+        {
+          "id": "6.2",
+          "name": "Workflow Automation",
+          "priority": "high",
+          "file": "functions/workflows.py",
+          "workflows": [
+            {
+              "name": "Start work mode",
+              "trigger": "Voice command: 'Start work mode'",
+              "actions": [
+                "Mac: Open VS Code, Terminal, Chrome with work tabs",
+                "Pi: Set focus mode (DND)",
+                "Lights: Set to focus mode (if available)",
+                "Spotify: Play focus playlist"
+              ]
+            },
+            {
+              "name": "End work",
+              "trigger": "Voice command: 'End work' or 'Wrap up'",
+              "actions": [
+                "Mac: Save all work files",
+                "Git: Commit with 'End of day' message",
+                "Mac: Close work apps",
+                "Pi: Generate day summary",
+                "Lights: Set to relax mode"
+              ]
+            },
+            {
+              "name": "Movie time",
+              "trigger": "Voice command: 'Movie time'",
+              "actions": [
+                "Lights: Dim to 20%",
+                "Mac: Open streaming app",
+                "Phone: Set to silent (if integrated)"
+              ]
+            },
+            {
+              "name": "I'm leaving",
+              "trigger": "Voice command: 'I'm leaving' or 'Goodbye'",
+              "actions": [
+                "Lights: Turn off all",
+                "Mac: Lock screen",
+                "Security: Arm system (if available)"
+              ]
+            },
+            {
+              "name": "Bedtime routine",
+              "trigger": "Voice command: 'Bedtime' or time-based",
+              "actions": [
+                "Mac: Sleep",
+                "Lights: Turn off",
+                "Set alarm for tomorrow",
+                "Generate tomorrow's preview"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6.3",
+          "name": "Voice Journal",
+          "priority": "low",
+          "file": "functions/journal.py",
+          "functions": [
+            "record_entry(text, mood=None)",
+            "read_entry(date)",
+            "search_journal(keyword)",
+            "daily_reflection_prompt()",
+            "track_mood(mood_level)",
+            "get_mood_trends(days=7)"
+          ]
+        }
+      ],
+      "deliverable": "Alfred manages tasks and automates routines",
+      "success_criteria": [
+        "Manages tasks and notes",
+        "Executes workflow automations",
+        "Keeps voice journal"
+      ]
+    },
+    {
+      "phase": 7,
+      "name": "Smart Home Integration",
+      "duration": "Week 13+ (Future)",
+      "goal": "Control lights, climate, and devices",
+      "prerequisites": [
+        "Budget for smart devices",
+        "Home Assistant installation"
+      ],
+      "tasks": [
+        {
+          "id": "7.1",
+          "name": "Home Assistant Setup",
+          "priority": "critical",
+          "steps": [
+            "Install Home Assistant (on Pi or separate device)",
+            "Configure smart devices",
+            "Setup API integration",
+            "Create automation rules"
+          ]
+        },
+        {
+          "id": "7.2",
+          "name": "Lighting Control",
+          "priority": "high",
+          "file": "functions/smart_home/lights.py",
+          "compatible_devices": [
+            "Philips Hue",
+            "LIFX",
+            "Xiaomi/Yeelight",
+            "IKEA Trådfri"
+          ],
+          "functions": [
+            "turn_on_lights(room)",
+            "turn_off_lights(room)",
+            "dim_lights(room, percentage)",
+            "set_color(room, color)",
+            "set_temperature(room, temp_kelvin)",
+            "set_scene(scene_name)",
+            "schedule_automation(schedule)"
+          ]
+        },
+        {
+          "id": "7.3",
+          "name": "Climate Control",
+          "priority": "medium",
+          "file": "functions/smart_home/climate.py",
+          "functions": [
+            "set_temperature(target_temp)",
+            "turn_on_ac()",
+            "turn_off_ac()",
+            "get_current_temperature()",
+            "set_humidity(level)",
+            "schedule_climate(schedule)"
+          ]
+        },
+        {
+          "id": "7.4",
+          "name": "Security & Sensors",
+          "priority": "high",
+          "file": "functions/smart_home/security.py",
+          "functions": [
+            "arm_system() - PIN required",
+            "disarm_system() - PIN required",
+            "check_door_status(door_name)",
+            "check_window_status(window_name)",
+            "lock_door(door_name) - PIN required",
+            "unlock_door(door_name) - PIN required",
+            "get_motion_status()",
+            "get_camera_feed(camera_name)"
+          ]
+        }
+      ],
+      "deliverable": "Alfred controls your smart home",
+      "success_criteria": [
+        "Controls smart home devices",
+        "Manages security system",
+        "Automates home routines"
+      ]
+    },
+    {
+      "phase": 8,
+      "name": "Advanced Features",
+      "duration": "Ongoing",
+      "goal": "Continuous improvement and new capabilities",
+      "tasks": [
+        {
+          "id": "8.1",
+          "name": "Learning & Adaptation",
+          "priority": "low",
+          "features": [
+            "Track command usage patterns",
+            "Personalize responses based on history",
+            "Predictive suggestions",
+            "Habit recognition",
+            "Preference learning"
+          ]
+        },
+        {
+          "id": "8.2",
+          "name": "Multi-User Support",
+          "priority": "medium",
+          "features": [
+            "Voice recognition for family members",
+            "User-specific contexts",
+            "Separate PINs per user",
+            "Privacy controls per user",
+            "Guest mode"
+          ]
+        },
+        {
+          "id": "8.3",
+          "name": "Data Analytics",
+          "priority": "low",
+          "file": "functions/analytics.py",
+          "metrics": [
+            "Email response time tracking",
+            "Calendar utilization",
+            "Productivity insights",
+            "Health habit tracking",
+            "Command usage statistics"
+          ]
+        },
+        {
+          "id": "8.4",
+          "name": "External Integrations",
+          "priority": "low",
+          "integrations": [
+            "Banking/finance APIs",
+            "Fitness tracking (Apple Health)",
+            "Food delivery (Uber Eats, Deliveroo)",
+            "Transportation (Uber, public transit)",
+            "News APIs",
+            "Stock market data"
+          ]
+        }
+      ]
+    }
+  ],
+  "technical_requirements": {
+    "hardware": {
+      "required": [
+        "Raspberry Pi 5 8GB",
+        "Microphone",
+        "USB speakers (recommended: Logitech Z150 or Creative Pebble)",
+        "Mac with SSH enabled",
+        "Network connection (WiFi or Ethernet)"
+      ],
+      "optional": [
+        "Smart home devices (lights, sensors, etc.)",
+        "Camera for computer vision"
+      ]
+    },
+    "software_pi": {
+      "system_packages": [
+        "espeak-ng",
+        "portaudio19-dev",
+        "python3-pip",
+        "git"
+      ],
+      "python_packages": [
+        "numpy",
+        "scipy",
+        "librosa",
+        "onnxruntime",
+        "sounddevice",
+        "paramiko",
+        "python-telegram-bot",
+        "pywhatkit",
+        "requests",
+        "bcrypt",
+        "python-dotenv"
+      ],
+      "optional_packages": [
+        "openai-whisper (if running locally)",
+        "pyttsx3 (alternative TTS)"
+      ]
+    },
+    "software_mac": {
+      "requirements": [
+        "SSH enabled (System Settings → Sharing → Remote Login)",
+        "Docker (for Whisper service)",
+        "SSH key from Pi authorized"
+      ],
+      "docker_services": [
+        "Whisper ASR: onerahmet/openai-whisper-asr-webservice"
+      ]
+    },
+    "apis_and_services": {
+      "free": [
+        {
+          "name": "OpenWeatherMap",
+          "purpose": "Weather data",
+          "signup": "https://openweathermap.org/api"
+        },
+        {
+          "name": "Telegram Bot API",
+          "purpose": "Messaging",
+          "signup": "https://t.me/BotFather"
+        },
+        {
+          "name": "Spotify API",
+          "purpose": "Music control",
+          "signup": "https://developer.spotify.com/"
+        }
+      ],
+      "paid_optional": [
+        {
+          "name": "Twilio",
+          "purpose": "WhatsApp API",
+          "cost": "Pay per message"
+        },
+        {
+          "name": "OpenAI API",
+          "purpose": "Enhanced LLM (alternative to Ollama)",
+          "cost": "Pay per token"
+        }
+      ],
+      "future": [
+        {
+          "name": "Home Assistant",
+          "purpose": "Smart home hub",
+          "cost": "Free (self-hosted)"
+        }
+      ]
+    }
+  },
+  "security": {
+    "authentication": [
+      "SSH key-based (no passwords)",
+      "API tokens in encrypted config",
+      "PIN for sensitive actions (bcrypt hashed)"
+    ],
+    "sensitive_actions": [
+      "send_email",
+      "delete_email",
+      "create_calendar_event",
+      "delete_calendar_event",
+      "send_telegram_message",
+      "send_whatsapp_message",
+      "shutdown_mac",
+      "deploy_code",
+      "arm_security_system",
+      "unlock_doors"
+    ],
+    "pin_system": {
+      "hashing": "bcrypt",
+      "failed_attempts_limit": 3,
+      "lockout_duration": "15 minutes",
+      "reset_method": "Physical access to Pi required"
+    },
+    "logging": {
+      "log_all_commands": true,
+      "log_sensitive_actions": true,
+      "log_rotation": "daily",
+      "retention": "30 days"
+    }
+  },
+  "personality": {
+    "character": "British butler (Batman's Alfred)",
+    "traits": [
+      "Formal",
+      "Helpful",
+      "Dry humor",
+      "Professional",
+      "Loyal"
+    ],
+    "languages": ["Italian", "English"],
+    "language_switching": "Automatic based on user's language",
+    "response_templates": {
+      "greetings": {
+        "english": ["Good day, sir", "At your service", "How may I assist you today?"],
+        "italian": ["Buongiorno, signore", "Ai suoi ordini", "Come posso aiutarla?"]
+      },
+      "acknowledgments": {
+        "english": ["Very well, sir", "As you wish", "Certainly", "Right away, sir"],
+        "italian": ["Molto bene, signore", "Come desidera", "Certamente", "Subito, signore"]
+      },
+      "errors": {
+        "english": [
+          "I'm afraid I cannot do that, sir",
+          "That appears to be beyond my capabilities",
+          "I must inform you of a complication, sir"
+        ],
+        "italian": [
+          "Mi dispiace, non posso farlo, signore",
+          "Questo sembra essere oltre le mie capacità",
+          "Devo informarla di una complicazione, signore"
+        ]
+      },
+      "dry_humor": {
+        "english": [
+          "I shall endeavor to overlook that request, sir",
+          "Perhaps we should revisit that decision",
+          "An interesting choice, if I may say so"
+        ],
+        "italian": [
+          "Mi sforzerò di ignorare quella richiesta, signore",
+          "Forse dovremmo riconsiderare quella decisione",
+          "Una scelta interessante, se posso permettermi"
+        ]
+      }
+    },
+    "tone_contexts": {
+      "morning": "Cheerful and energetic",
+      "work_hours": "Professional and focused",
+      "evening": "Relaxed and conversational",
+      "errors": "Apologetic but dignified",
+      "emergencies": "Calm and reassuring"
+    }
+  },
+  "testing": {
+    "unit_tests": {
+      "coverage_target": "80%",
+      "test_files": [
+        "tests/test_functions.py",
+        "tests/test_intents.py",
+        "tests/test_ssh_helper.py",
+        "tests/test_security.py",
+        "tests/test_response_generator.py"
+      ]
+    },
+    "integration_tests": [
+      "SSH connectivity to Mac",
+      "API integrations (weather, Telegram, etc.)",
+      "Whisper transcription accuracy",
+      "Ollama intent understanding",
+      "End-to-end conversation flows"
+    ],
+    "manual_testing_checklist": [
+      "Wake word detection accuracy",
+      "Transcription accuracy (Italian & English)",
+      "Intent understanding",
+      "Function execution",
+      "Response generation quality",
+      "TTS voice quality",
+      "PIN security enforcement",
+      "SSH connection reliability",
+      "API rate limits handling",
+      "Error message clarity"
+    ]
+  },
+  "deployment": {
+    "development": {
+      "location": "Mac for coding, Pi for testing",
+      "version_control": "Git repository",
+      "config": "Separate dev/prod configs"
+    },
+    "production": {
+      "auto_start": "systemd service",
+      "service_file": "/etc/systemd/system/alfred.service",
+      "log_rotation": "logrotate config",
+      "restart_policy": "always",
+      "health_check": "Monitor process + log errors",
+      "backup": "Daily config + model backup"
+    }
+  },
+  "documentation": {
+    "code": [
+      "Docstrings for all functions",
+      "Type hints",
+      "Inline comments for complex logic",
+      "README for each module"
+    ],
+    "user": [
+      "Setup guide",
+      "Command reference",
+      "Configuration guide",
+      "Troubleshooting FAQ",
+      "Privacy policy",
+      "Security best practices"
+    ]
+  },
+  "future_enhancements": {
+    "short_term": [
+      "Voice recognition for family members",
+      "Mobile app for remote control",
+      "Web dashboard for monitoring",
+      "Plugin system for extensions"
+    ],
+    "long_term": [
+      "Computer vision integration",
+      "Emotion detection in voice",
+      "Predictive behavior modeling",
+      "Multi-room audio support",
+      "Alfred teaching mode (learn from corrections)",
+      "Natural language programming ('Alfred, create a script that...')"
+    ]
+  },
+  "resources": {
+    "documentation": [
+      "Ollama: https://ollama.ai/docs",
+      "Apple AppleScript: https://developer.apple.com/applescript",
+      "Telegram Bot API: https://core.telegram.org/bots/api",
+      "Home Assistant: https://www.home-assistant.io/docs",
+      "Whisper: https://github.com/openai/whisper"
+    ],
+    "community": [
+      "Raspberry Pi Forums",
+      "r/homeassistant",
+      "r/raspberry_pi",
+      "Ollama Discord"
+    ]
+  },
+  "timeline_summary": {
+    "phase_1": "Week 1-2: Foundation",
+    "phase_2": "Week 3-4: Mac Integration",
+    "phase_3": "Week 5-6: Messaging",
+    "phase_4": "Week 7-8: Media & Dev Tools",
+    "phase_5": "Week 9-10: Context-Aware Intelligence",
+    "phase_6": "Week 11-12: Productivity",
+    "phase_7": "Week 13+: Smart Home (when funded)",
+    "phase_8": "Ongoing: Advanced Features",
+    "total_core_development": "12 weeks",
+    "note": "Phases can overlap, some tasks can be done in parallel"
+  },
+  "status": {
+    "current_phase": 1,
+    "completed_phases": 0,
+    "next_milestone": "Ollama integration + Basic functions",
+    "blockers": [
+      "Need USB speakers for TTS output",
+      "Need to test Ollama performance on Pi 5"
+    ],
+    "ready_to_start": true
+  }
+}
