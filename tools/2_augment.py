@@ -205,16 +205,16 @@ Examples:
   python augment_data.py
 
   # Create 10x more samples
-  python augment_data.py --multiplier 10
+  python augment_data.py -m 10
 
   # Only augment wake word samples
-  python augment_data.py --only-wake
+  python augment_data.py -w
 
   # Only augment not-wake samples
-  python augment_data.py --only-not-wake
+  python augment_data.py -n
 
   # Custom data directory
-  python augment_data.py --data-dir my_data --multiplier 3
+  python augment_data.py --data-dir my_data -m 3
         """
     )
 
@@ -224,18 +224,18 @@ Examples:
         help='Data directory (default: data)'
     )
     parser.add_argument(
-        '--multiplier',
+        '-m', '--multiplier',
         type=int,
         default=5,
         help='How many augmented versions per file (default: 5)'
     )
     parser.add_argument(
-        '--only-wake',
+        '-w', '--only-wake',
         action='store_true',
         help='Only augment wake-word samples'
     )
     parser.add_argument(
-        '--only-not-wake',
+        '-n', '--only-not-wake',
         action='store_true',
         help='Only augment not-wake-word samples'
     )

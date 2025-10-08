@@ -18,5 +18,5 @@ numpy
 tqdm
 
 # Optional: For ONNX export (faster inference on RPi)
-# onnx
-# onnxruntime
+onnx
+onnxruntime

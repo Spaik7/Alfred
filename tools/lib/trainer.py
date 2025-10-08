@@ -228,14 +228,20 @@ def train_model(data_dir, epochs=100, batch_size=32, learning_rate=0.001, device
     print(f"\nTraining for {epochs} epochs...")
     best_accuracy = 0
 
-    for epoch in range(epochs):
+    # Progress bar for epochs
+    epoch_pbar = tqdm(range(epochs), desc="Training", unit="epoch")
+
+    for epoch in epoch_pbar:
         # Training
         model.train()
         train_loss = 0
         train_correct = 0
         train_total = 0
 
-        for mfcc, labels in train_loader:
+        # Progress bar for batches
+        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}", leave=False, unit="batch")
+
+        for mfcc, labels in train_pbar:
             mfcc, labels = mfcc.to(device), labels.to(device)
 
             # Forward
@@ -253,7 +259,14 @@ def train_model(data_dir, epochs=100, batch_size=32, learning_rate=0.001, device
             train_correct += (predictions == labels).sum().item()
             train_total += labels.size(0)
 
+            # Update batch progress bar
+            train_pbar.set_postfix({
+                'loss': f'{loss.item():.4f}',
+                'acc': f'{train_correct/train_total:.2%}'
+            })
+
         train_accuracy = train_correct / train_total
+        avg_train_loss = train_loss / len(train_loader)
 
         # Validation
         model.eval()
@@ -275,17 +288,19 @@ def train_model(data_dir, epochs=100, batch_size=32, learning_rate=0.001, device
 
         test_accuracy = test_correct / test_total if test_total > 0 else 0
 
-        # Print progress
-        if (epoch + 1) % 10 == 0 or epoch == 0:
-            print(f"Epoch {epoch+1}/{epochs} - "
-                  f"Train Loss: {train_loss/len(train_loader):.4f}, "
-                  f"Train Acc: {train_accuracy:.2%}, "
-                  f"Test Acc: {test_accuracy:.2%}")
+        # Update epoch progress bar
+        epoch_pbar.set_postfix({
+            'train_loss': f'{avg_train_loss:.4f}',
+            'train_acc': f'{train_accuracy:.2%}',
+            'test_acc': f'{test_accuracy:.2%}',
+            'best': f'{max(best_accuracy, test_accuracy):.2%}'
+        })
 
         # Save best model
         if test_accuracy > best_accuracy:
             best_accuracy = test_accuracy
             torch.save(model.state_dict(), 'models/alfred_pytorch.pt')
+            epoch_pbar.set_description(f"Training (✓ new best: {best_accuracy:.2%})")
 
     print("\n" + "=" * 60)
     print(f"✓ Training completed!")

@@ -442,35 +442,35 @@ def main():
         description='Record audio samples for Mycroft Precise training'
     )
     parser.add_argument(
-        '--wake-word',
+        '-w', '--wake-word',
         help='Wake word phrase (for guided mode)'
     )
     parser.add_argument(
-        '--mode',
+        '-m', '--mode',
         choices=['wake', 'not-wake', 'guided'],
         default='guided',
         help='Recording mode (default: guided)'
     )
     parser.add_argument(
-        '--count', '-c',
+        '-c', '--count',
         type=int,
         default=150,
         help='Number of wake word samples to record (default: 150). In guided mode, not-wake samples will be 2x this.'
     )
     parser.add_argument(
-        '--duration', '-d',
+        '-d', '--duration',
         type=int,
         default=3,
         help='Duration of each recording in seconds (default: 3)'
     )
     parser.add_argument(
-        '--device', '-i',
+        '-i', '--device',
         type=int,
         default=None,
         help='Audio input device index (use --list-devices to see options)'
     )
     parser.add_argument(
-        '--list-devices',
+        '-l', '--list-devices',
         action='store_true',
         help='List available audio devices and exit'
     )
@@ -480,12 +480,12 @@ def main():
         help='Base directory for data (default: data)'
     )
     parser.add_argument(
-        '--resume', '-r',
+        '-r', '--resume',
         action='store_true',
         help='Resume from existing recordings'
     )
     parser.add_argument(
-        '--auto',
+        '-a', '--auto',
         action='store_true',
         help='Auto-record mode for not-wake-word samples (no Enter key required)'
     )

@@ -38,20 +38,20 @@ def main():
         epilog="""
 Examples:
   # Run complete workflow (record → augment → train → test)
-  python run.py --all
+  python run.py -a
 
   # Run individual steps
-  python run.py --step 1    # Record data
-  python run.py --step 2    # Augment data
-  python run.py --step 3    # Train model
-  python run.py --step 4    # Test model
+  python run.py -s 1    # Record data
+  python run.py -s 2    # Augment data
+  python run.py -s 3    # Train model
+  python run.py -s 4    # Test model
 
   # Run specific sequence
-  python run.py --steps 2,3,4    # Augment → Train → Test
+  python run.py -m 2,3,4    # Augment → Train → Test
 
   # Pass arguments to specific step
-  python run.py --step 3 --args "--epochs 150 --export-onnx"
-  python run.py --step 4 --args "--listen --threshold 0.6"
+  python run.py -s 3 --args "-e 150 -o"
+  python run.py -s 4 --args "-l -s 0.6"
 
 Available Arguments by Step:
 
@@ -89,36 +89,36 @@ Available Arguments by Step:
 
 Common Usage Examples:
   # Record with wake word "Alfred"
-  python run.py --step 1 --args "--wake-word Alfred --count 150"
+  python run.py -s 1 --args "-w Alfred -c 150"
 
   # Augment 10x
-  python run.py --step 2 --args "--multiplier 10"
+  python run.py -s 2 --args "-m 10"
 
   # Train with 150 epochs and export ONNX
-  python run.py --step 3 --args "--epochs 150 --export-onnx"
+  python run.py -s 3 --args "-e 150 -o"
 
   # Test with live microphone at 0.6 threshold
-  python run.py --step 4 --args "--listen --threshold 0.6"
+  python run.py -s 4 --args "-l -s 0.6"
 
   # Complete workflow with custom wake word
-  python run.py --step 1 --args "--wake-word Alfred"
-  python run.py --steps 2,3,4
+  python run.py -s 1 --args "-w Alfred"
+  python run.py -m 2,3,4
         """
     )
 
     parser.add_argument(
-        '--all',
+        '-a', '--all',
         action='store_true',
         help='Run complete workflow (all steps)'
     )
     parser.add_argument(
-        '--step',
+        '-s', '--step',
         type=int,
         choices=[1, 2, 3, 4],
         help='Run a specific step (1=record, 2=augment, 3=train, 4=test)'
     )
     parser.add_argument(
-        '--steps',
+        '-m', '--steps',
         type=str,
         help='Run specific steps (e.g., "2,3,4" or "1,3")'
     )

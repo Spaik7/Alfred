@@ -10,7 +10,8 @@ Train a custom "Alfred" wake word detector optimized for Raspberry Pi. Tiny mode
 2. **Record** background noise/speech 300 times
 3. **Augment** data to create 5x more samples
 4. **Train** the model (~15 minutes)
-5. **Test** and deploy
+5. **Setup** Whisper (local or Docker)
+6. **Run** Alfred assistant with wake word detection!
 
 That's it!
 
@@ -31,10 +32,15 @@ python run.py --all
 
 Or run individual steps:
 ```bash
-python run.py --step 1    # Record
-python run.py --step 2    # Augment
-python run.py --step 3    # Train
-python run.py --step 4    # Test
+python run.py -s 1    # Record
+python run.py -s 2    # Augment
+python run.py -s 3    # Train
+python run.py -s 4    # Test
+```
+
+Then run Alfred:
+```bash
+python alfred.py    # Start the assistant
 ```
 
 ---
@@ -203,13 +209,13 @@ python tools/4_test.py --listen --threshold 0.3
 
 ```bash
 # Augment → Train → Test
-python run.py --steps 2,3,4
+python run.py -m 2,3,4
 
 # Record → Train (skip augmentation)
-python run.py --steps 1,3
+python run.py -m 1,3
 
 # Complete workflow
-python run.py --all
+python run.py -a
 ```
 
 ---
@@ -367,6 +373,181 @@ python tools/4_test.py --model models/my_model.pt --listen
 
 ---
 
+## Running Alfred (Main Assistant)
+
+After training your model, use `alfred.py` to run the full voice assistant with wake word detection and command transcription.
+
+### Quick Start
+
+```bash
+# Use Docker Whisper (default)
+python alfred.py
+
+# Use local Whisper
+python alfred.py -w local
+
+# Custom settings
+python alfred.py -t 0.95 -st 3.0 -s 0.02
+```
+
+### All Command Line Arguments
+
+```bash
+# Whisper Configuration
+-w, --whisper          # Whisper mode: local or docker (default: docker)
+-d, --docker-ip        # Docker API IP:PORT (default: 192.168.1.5:9999)
+-wm, --whisper-model   # Model for local mode: tiny, base, small, medium, large (default: base)
+
+# Wake Word Detection
+-t, --threshold        # Wake detection threshold 0-1 (default: 0.98, lower = more sensitive)
+
+# Voice Activity Detection (VAD)
+-s, --silence-threshold    # Audio energy threshold for silence detection (default: 0.01)
+                           # Lower (0.005) = detects silence faster
+                           # Higher (0.05) = waits for louder silence, good for noisy rooms
+
+-st, --silence-duration    # Seconds of silence before stopping recording (default: 2.0)
+                           # Increase if your speech has long pauses
+```
+
+### Usage Examples
+
+**Basic usage:**
+```bash
+# Docker Whisper (default)
+python alfred.py
+
+# Local Whisper with base model
+python alfred.py -w local
+
+# Local Whisper with faster model
+python alfred.py -w local -wm tiny
+
+# Local Whisper with better accuracy
+python alfred.py -w local -wm medium
+```
+
+**Adjust wake word sensitivity:**
+```bash
+# More sensitive (catches more, may have false positives)
+python alfred.py -t 0.9
+
+# More strict (fewer false positives)
+python alfred.py -t 0.98
+```
+
+**Adjust silence detection:**
+```bash
+# Quick response (stops after 1.5s of silence)
+python alfred.py -st 1.5
+
+# Wait longer (good for speech with pauses)
+python alfred.py -st 3.5
+
+# Noisier environment (higher threshold)
+python alfred.py -s 0.03 -st 2.5
+
+# Quiet environment (lower threshold)
+python alfred.py -s 0.005 -st 2.0
+```
+
+**Combined settings:**
+```bash
+# Balanced setup
+python alfred.py -w local -wm small -t 0.95 -s 0.015 -st 2.5
+
+# Fast response setup
+python alfred.py -w local -wm tiny -t 0.9 -st 1.5
+
+# Accurate setup
+python alfred.py -w local -wm medium -t 0.98 -st 3.0
+```
+
+### How It Works
+
+1. **Continuous Listening:** Records 1.5s audio chunks at 48kHz
+2. **Wake Word Detection:** Resamples to 16kHz, extracts MFCC features, runs through ONNX model
+3. **Voice Command:** When wake word detected, records until silence (VAD)
+4. **Transcription:** Sends audio to Whisper (local or Docker)
+5. **Output:** Displays transcribed command
+
+**Configuration Display:**
+```
+🤖 Alfred is ready!
+Configuration:
+  Wake threshold: 0.98
+  Whisper mode: local
+  Whisper model: base
+  Silence threshold: 0.01 (audio energy level)
+  Silence duration: 2.0s (continuous silence to stop)
+
+Say 'Hey Alfred' to wake me up.
+```
+
+---
+
+## Whisper Setup
+
+Alfred supports two Whisper modes for command transcription:
+
+### Option 1: Local Whisper (Simpler)
+
+**Install:**
+```bash
+pip install openai-whisper
+```
+
+**Use:**
+```bash
+python alfred.py -w local -wm base
+```
+
+**Models:**
+- `tiny` - Fastest, lowest accuracy (~1GB RAM, ~2s per 5s audio on RPi4)
+- `base` - Good balance (~1GB RAM, ~5s per 5s audio on RPi4)
+- `small` - Better accuracy (~2GB RAM, ~15s per 5s audio on RPi4)
+- `medium` - High accuracy (~5GB RAM, too slow for RPi)
+- `large` - Best accuracy (~10GB RAM, not for RPi)
+
+### Option 2: Docker Whisper (Better Performance)
+
+Docker provides better performance and isolation. See `whisper-docker/` directory.
+
+**Build with default model (turbo):**
+```bash
+cd whisper-docker
+docker build -t whisper-api .
+docker run -d -p 9999:9999 --name whisper whisper-api
+```
+
+**Build with custom model:**
+```bash
+# For Raspberry Pi (use base model)
+docker build --build-arg WHISPER_MODEL=base -t whisper-api:base .
+docker run -d -p 9999:9999 --name whisper whisper-api:base
+
+# For desktop/server (use turbo model)
+docker build --build-arg WHISPER_MODEL=turbo -t whisper-api:turbo .
+docker run -d -p 9999:9999 --name whisper whisper-api:turbo
+
+# For high accuracy (use medium model)
+docker build --build-arg WHISPER_MODEL=medium -t whisper-api:medium .
+docker run -d -p 9999:9999 --name whisper whisper-api:medium
+```
+
+**Use with Alfred:**
+```bash
+# Local Docker
+python alfred.py -w docker
+
+# Remote Docker
+python alfred.py -w docker -d 192.168.1.10:9999
+```
+
+**See `whisper-docker/README.md` for complete Docker documentation.**
+
+---
+
 ## Deploy to Raspberry Pi
 
 ### Copy Files
@@ -427,23 +608,43 @@ detector.listen_microphone(threshold=0.5)
 
 ## Quick Reference
 
-```bash
-# Complete workflow
-python run.py --all
+### Training Workflow
 
-# Individual steps
-python run.py --step 1              # Record
-python run.py --step 2              # Augment
-python run.py --step 3              # Train
-python run.py --step 4              # Test
+```bash
+# Complete workflow (short flags)
+python run.py -a
+
+# Individual steps (short flags)
+python run.py -s 1              # Record
+python run.py -s 2              # Augment
+python run.py -s 3              # Train
+python run.py -s 4              # Test
 
 # With custom arguments
-python run.py --step 3 --args "--epochs 150"
-python run.py --step 4 --args "--listen --threshold 0.6"
+python run.py -s 3 --args "-e 150 -o"
+python run.py -s 4 --args "-l -s 0.6"
 
 # Multiple steps
-python run.py --steps 2,3,4         # Augment → Train → Test
+python run.py -m 2,3,4          # Augment → Train → Test
 ```
+
+### Running Alfred
+
+```bash
+# Basic (Docker Whisper)
+python alfred.py
+
+# Local Whisper
+python alfred.py -w local -wm base
+
+# Custom settings (short flags)
+python alfred.py -t 0.95 -st 3.0 -s 0.015
+
+# Full example
+python alfred.py -w local -wm small -t 0.95 -s 0.015 -st 2.5
+```
+
+**Note:** All scripts support single-letter short flags (e.g., `-t` instead of `--threshold`). Use `-h` for help on any script.
 
 ---
 
@@ -474,7 +675,8 @@ python run.py --steps 2,3,4         # Augment → Train → Test
 
 ```
 jarvis/
-├── run.py                  # Master script - runs all steps
+├── alfred.py               # Main assistant script (wake word + Whisper)
+├── run.py                  # Master script - runs all training steps
 ├── tools/                  # All training/testing scripts
 │   ├── 1_record.py        # Record training data
 │   ├── 2_augment.py       # Create more samples
@@ -483,6 +685,11 @@ jarvis/
 │   └── lib/               # Core libraries
 │       ├── trainer.py     # Model architecture
 │       └── detector.py    # Detection logic
+├── whisper-docker/         # Docker setup for Whisper API
+│   ├── Dockerfile         # Multi-model Docker build
+│   ├── app.py             # Flask API server
+│   ├── requirement.txt    # Python dependencies
+│   └── README.md          # Docker documentation
 ├── data/                   # Your training data
 │   ├── train/
 │   │   ├── wake-word/
@@ -491,7 +698,8 @@ jarvis/
 │       ├── wake-word/
 │       └── not-wake-word/
 ├── models/                 # Trained models
-│   └── alfred_pytorch.pt
+│   ├── alfred_pytorch.pt  # PyTorch model
+│   └── alfred.onnx        # ONNX model (optimized)
 ├── archived/               # Old broken files (safe to delete)
 ├── requirements.txt        # Dependencies
 └── README.md              # This file
@@ -528,6 +736,56 @@ Issues? Check:
 3. Running from project root directory
 4. Directory structure correct (`data/train/`, `data/test/`)
 5. Audio files are valid WAV format
+
+---
+
+## Short Flags Reference
+
+All scripts support single-letter short flags for convenience:
+
+### alfred.py (Main Assistant)
+- `-w` = `--whisper` (mode)
+- `-d` = `--docker-ip`
+- `-wm` = `--whisper-model`
+- `-t` = `--threshold`
+- `-s` = `--silence-threshold`
+- `-st` = `--silence-duration`
+
+### run.py (Master Script)
+- `-a` = `--all`
+- `-s` = `--step`
+- `-m` = `--steps`
+
+### 1_record.py
+- `-w` = `--wake-word`
+- `-m` = `--mode`
+- `-c` = `--count`
+- `-d` = `--duration`
+- `-i` = `--device`
+- `-l` = `--list-devices`
+- `-r` = `--resume`
+- `-a` = `--auto`
+
+### 2_augment.py
+- `-m` = `--multiplier`
+- `-w` = `--only-wake`
+- `-n` = `--only-not-wake`
+
+### 3_train.py
+- `-e` = `--epochs`
+- `-b` = `--batch-size`
+- `-l` = `--lr`
+- `-o` = `--export-onnx`
+
+### 4_test.py
+- `-m` = `--model`
+- `-t` = `--test`
+- `-l` = `--listen`
+- `-d` = `--test-dir`
+- `-s` = `--threshold`
+- `-f` = `--test-file`
+
+Use `-h` on any script for full help and examples!
 
 ---
 

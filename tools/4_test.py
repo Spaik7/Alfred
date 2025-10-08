@@ -23,50 +23,50 @@ def main():
         epilog="""
 Examples:
   # Test against test dataset
-  python test.py --test
+  python test.py -t
 
   # Live microphone detection
-  python test.py --listen
+  python test.py -l
 
   # Test dataset then go live
-  python test.py --test --listen
+  python test.py -t -l
 
   # Test with custom threshold
-  python test.py --listen --threshold 0.6
+  python test.py -l -s 0.6
 
   # Test single audio file
-  python test.py --test-file precise_data/test/wake-word/sample_0001.wav
+  python test.py -f precise_data/test/wake-word/sample_0001.wav
         """
     )
 
     parser.add_argument(
-        '--model',
+        '-m', '--model',
         default='models/alfred_pytorch.pt',
         help='Path to trained model (default: models/alfred_pytorch.pt)'
     )
     parser.add_argument(
-        '--test',
+        '-t', '--test',
         action='store_true',
         help='Test model against test dataset'
     )
     parser.add_argument(
-        '--listen',
+        '-l', '--listen',
         action='store_true',
         help='Listen to microphone for wake word detection'
     )
     parser.add_argument(
-        '--test-dir',
+        '-d', '--test-dir',
         default='data/test',
         help='Test dataset directory (default: data/test)'
     )
     parser.add_argument(
-        '--threshold',
+        '-s', '--threshold',
         type=float,
         default=0.5,
         help='Detection threshold 0-1 (default: 0.5, higher=more strict)'
     )
     parser.add_argument(
-        '--test-file',
+        '-f', '--test-file',
         help='Test a single audio file'
     )
 

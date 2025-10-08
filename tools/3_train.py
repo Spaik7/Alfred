@@ -27,13 +27,16 @@ Examples:
   python train.py
 
   # Train with more epochs for better accuracy
-  python train.py --epochs 150
+  python train.py -e 150
 
   # Train and export to ONNX for Raspberry Pi
-  python train.py --epochs 100 --export-onnx
+  python train.py -e 100 -o
+
+  # Custom batch size and learning rate
+  python train.py -e 100 -b 64 -l 0.0005
 
   # Custom data directory
-  python train.py --data-dir my_data --epochs 100
+  python train.py --data-dir my_data -e 100 -o
         """
     )
 
@@ -43,25 +46,25 @@ Examples:
         help='Directory containing train/test data (default: data)'
     )
     parser.add_argument(
-        '--epochs',
+        '-e', '--epochs',
         type=int,
         default=100,
         help='Number of training epochs (default: 100, recommended: 100-150)'
     )
     parser.add_argument(
-        '--batch-size',
+        '-b', '--batch-size',
         type=int,
         default=32,
         help='Training batch size (default: 32)'
     )
     parser.add_argument(
-        '--lr',
+        '-l', '--lr',
         type=float,
         default=0.001,
         help='Learning rate (default: 0.001)'
     )
     parser.add_argument(
-        '--export-onnx',
+        '-o', '--export-onnx',
         action='store_true',
         help='Export to ONNX format after training (for Raspberry Pi deployment)'
     )
