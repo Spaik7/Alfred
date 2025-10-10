@@ -12,6 +12,7 @@ import os
 import sys
 import argparse
 from pathlib import Path
+from intents import parse_intent
 
 # =============================
 #     COMMAND LINE ARGUMENTS
@@ -78,6 +79,12 @@ parser.add_argument(
     type=float,
     default=2.0,
     help='How many seconds of continuous silence before stopping recording. Increase this if your speech has long pauses. Range: 0.5-5.0 seconds. (default: 2.0)'
+)
+
+parser.add_argument(
+    '--debug',
+    action='store_true',
+    help='Debug mode: type commands instead of using wake word detection'
 )
 
 args = parser.parse_args()
@@ -332,6 +339,18 @@ while True:
             print("🎧 Transcribing command...")
             command = transcribe(audio_file)
             print(f"🗣 You said: {command}")
+            
+            # Parse intent
+            if command:
+                intent_result = parse_intent(command)
+                print(f"\n📋 Intent parsed:")
+                print(f"   Intent: {intent_result['intent']}")
+                print(f"   Language: {intent_result['language']}")
+                print(f"   Confidence: {intent_result['confidence']}")
+                if intent_result['parameters']:
+                    print(f"   Parameters: {intent_result['parameters']}")
+                print(f"   Requires PIN: {intent_result['requires_pin']}")
+                print()
             if command:
                 print(f"[TTS skipped] -> You said: {command}")
 

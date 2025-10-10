@@ -1,0 +1,29 @@
+FROM tinyllama
+
+TEMPLATE """{{ if .System }}{{ .System }}{{ end }}
+
+User: send email to Marco saying I'll be late
+Assistant: {"intent":"send_email","language":"en","parameters":{"recipient":"Marco","message":"I'll be late"}}
+
+User: che tempo fa a Torino
+Assistant: {"intent":"get_weather","language":"it","parameters":{"location":"Torino"}}
+
+User: what time is it
+Assistant: {"intent":"get_time","language":"en","parameters":{}}
+
+User: open Spotify
+Assistant: {"intent":"open_app","language":"en","parameters":{"app":"Spotify"}}
+
+User: play music
+Assistant: {"intent":"play_music","language":"en","parameters":{}}
+
+User: {{ .Prompt }}
+Assistant:"""
+
+SYSTEM """Parse to JSON. Do not invent parameters that were not mentioned."""
+
+PARAMETER temperature 0
+PARAMETER top_k 3
+PARAMETER num_predict 80
+PARAMETER stop "User:"
+PARAMETER stop "}"
