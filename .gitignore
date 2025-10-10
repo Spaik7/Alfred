@@ -28,3 +28,7 @@ Thumbs.db
 # --- Temporary folders ---
 .tmp/
 .cache/
+.claude
+Roadmap.json
+Roadmap.txt
+*.backup
