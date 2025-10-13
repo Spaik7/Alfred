@@ -12,7 +12,12 @@ import os
 import sys
 import argparse
 from pathlib import Path
-from intents import parse_intent
+from functions.intents import parse_intent
+from functions.tts_engine import TTSEngine, Language
+from functions import volume_control, time_date, system, general, weather
+from functions.response_generator import generate_response as generate_ai_response
+from functions.response_templates import generate_template_response
+from config import RESPONSE_MODE, AI_MODEL
 
 # =============================
 #     COMMAND LINE ARGUMENTS
@@ -87,14 +92,81 @@ parser.add_argument(
     help='Debug mode: type commands instead of using wake word detection'
 )
 
+parser.add_argument(
+    '--no-tts',
+    action='store_true',
+    help='Disable TTS output (print only)'
+)
+
+parser.add_argument(
+    '-v', '--volume',
+    type=int,
+    default=20,
+    help='Startup volume level 0-100 (default: 20)'
+)
+
 args = parser.parse_args()
+
+# =============================
+#     TTS ENGINE SETUP
+# =============================
+tts_engine = None
+if not args.no_tts:
+    try:
+        print("Initializing TTS engine...")
+        tts_engine = TTSEngine()
+        print("✅ TTS engine ready (US English + Italian voices)!")
+    except Exception as e:
+        print(f"⚠️  TTS initialization failed: {e}")
+        print("   Continuing without voice output...")
+        tts_engine = None
 
 # =============================
 #        SPEECH OUTPUT
 # =============================
-def speak(text):
-    print(f"[TTS skipped] -> {text}")
-    pass
+def speak(text: str, language: str = "english"):
+    """
+    Speak text using Piper TTS with automatic voice selection
+
+    Args:
+        text: Text to speak
+        language: Language of the text ("english" or "italian")
+    """
+    print(f"🗣️  Alfred ({language}): {text}")
+
+    if tts_engine:
+        try:
+            # Map string language to Language enum
+            lang = Language.ITALIAN if language.lower() == "italian" else Language.ENGLISH
+            wav_path = tts_engine.speak(text, language=lang)
+            # Clean up temporary file after playing
+            if os.path.exists(wav_path):
+                os.unlink(wav_path)
+        except Exception as e:
+            print(f"⚠️  TTS error: {e}")
+    else:
+        print("   [TTS disabled]")
+
+# =============================
+#    RESPONSE GENERATION
+# =============================
+def generate_response(intent: str, result: str, language: str = "en", parameters: dict = None):
+    """
+    Unified response generation - switches between template and AI modes
+
+    Args:
+        intent: Intent type (e.g., "weather", "time", "volume_up")
+        result: Result value to include in response
+        language: Language code ("en" or "it")
+        parameters: Additional parameters for response generation
+
+    Returns:
+        Generated response string
+    """
+    if RESPONSE_MODE == "template":
+        return generate_template_response(intent, result, language, parameters)
+    else:  # AI mode
+        return generate_ai_response(intent, result, language, parameters)
 
 # =============================
 #      MODEL LOADING
@@ -283,6 +355,27 @@ def transcribe(file_path):
         return transcribe_with_whisper_docker(file_path, api_url)
 
 # =============================
+#   VOLUME INITIALIZATION
+# =============================
+# Set startup volume
+startup_volume = max(0, min(100, args.volume))  # Clamp to 0-100
+volume_control.set_volume(startup_volume)
+print(f"🔊 Volume set to {startup_volume}%")
+
+# =============================
+#   RESPONSE MODEL SETUP
+# =============================
+print(f"\n📝 Response mode: {RESPONSE_MODE}")
+if RESPONSE_MODE == "ai":
+    print(f"   AI Model: {AI_MODEL}")
+    print("   Preloading response model...")
+    from functions.response_generator import get_generator
+    response_gen = get_generator()
+    response_gen.preload_model()
+else:
+    print("   Using instant template responses")
+
+# =============================
 #        MAIN LOOP
 # =============================
 print("\n" + "=" * 60)
@@ -297,8 +390,13 @@ else:
     print(f"  Whisper model: {args.whisper_model}")
 print(f"  Silence threshold: {args.silence_threshold} (audio energy level)")
 print(f"  Silence duration: {args.silence_duration}s (continuous silence to stop)")
+print(f"  TTS: {'Enabled (US English + Italian)' if tts_engine else 'Disabled'}")
+print(f"  Startup volume: {startup_volume}%")
 print(f"\nSay 'Hey {wake_word_name}' to wake me up.")
-print(f"[TTS skipped] -> Ciao! Sono {wake_word_name}, pronto ad aiutarti.")
+
+# Welcome message in Italian
+speak(f"Ciao! Sono {wake_word_name}, pronto ad aiutarti.", language="italian")
+
 print("=" * 60 + "\n")
 
 while True:
@@ -323,7 +421,7 @@ while True:
 
         if wake_prob > wake_threshold:
             print("🚀 Wake word detected! Listening for command...")
-            print("[TTS skipped] -> Yes sir, what is your command?")
+            speak("Yes sir, I'm listening.", language="english")
 
             # Record command until silence (48kHz for Whisper)
             command_audio = record_until_silence(
@@ -339,7 +437,7 @@ while True:
             print("🎧 Transcribing command...")
             command = transcribe(audio_file)
             print(f"🗣 You said: {command}")
-            
+
             # Parse intent
             if command:
                 intent_result = parse_intent(command)
@@ -351,8 +449,108 @@ while True:
                     print(f"   Parameters: {intent_result['parameters']}")
                 print(f"   Requires PIN: {intent_result['requires_pin']}")
                 print()
-            if command:
-                print(f"[TTS skipped] -> You said: {command}")
+
+                # Get detected language from intent
+                detected_lang = intent_result['language']
+                lang_map = {'en': 'english', 'it': 'italian'}
+                speak_lang = lang_map.get(detected_lang, 'english')
+
+                # Execute the intent
+                intent = intent_result['intent']
+                params = intent_result['parameters']
+
+                # Volume control intents
+                if intent == 'volume_set':
+                    level = params.get('level', 50)
+                    volume_control.set_volume(level)
+                    response = generate_response(intent, str(level), language=detected_lang, parameters=params)
+                    speak(response, language=speak_lang)
+
+                elif intent == 'volume_up':
+                    amount = params.get('amount', 10)
+                    new_vol = volume_control.increase_volume(amount)
+                    response = generate_response(intent, str(new_vol), language=detected_lang, parameters=params)
+                    speak(response, language=speak_lang)
+
+                elif intent == 'volume_down':
+                    amount = params.get('amount', 10)
+                    new_vol = volume_control.decrease_volume(amount)
+                    response = generate_response(intent, str(new_vol), language=detected_lang, parameters=params)
+                    speak(response, language=speak_lang)
+
+                # Time & Date intents
+                elif intent == 'time':
+                    time_data = time_date.get_time()
+                    if time_data["success"]:
+                        response = generate_response(intent, time_data["time"], language=detected_lang, parameters=time_data)
+                        speak(response, language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot tell the time at the moment, sir.", language=speak_lang)
+
+                elif intent == 'date':
+                    date_data = time_date.get_date()
+                    if date_data["success"]:
+                        result = f"{date_data['weekday']}, {date_data['date_formatted']}"
+                        response = generate_response(intent, result, language=detected_lang, parameters=date_data)
+                        speak(response, language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot tell the date at the moment, sir.", language=speak_lang)
+
+                # Weather intents
+                elif intent == 'weather':
+                    location = params.get('location', None)  # None will use default from config
+                    weather_data = weather.get_weather(detected_lang, location)  # Pass language code (en/it)
+                    if weather_data["success"]:
+                        # Let template system handle formatting - just provide basic result
+                        result = f"{weather_data['temperature_c']}C, {weather_data['description']}"
+                        response = generate_response(intent, result, language=detected_lang, parameters=weather_data)
+                        speak(response, language=speak_lang)
+                    else:
+                        loc_name = location if location else "your location"
+                        speak(f"I'm afraid I cannot fetch the weather for {loc_name}, sir.", language=speak_lang)
+
+                # System status intents
+                elif intent == 'system_status':
+                    status_data = system.get_system_status()
+                    if status_data["success"]:
+                        cpu = status_data['cpu']
+                        memory = status_data['memory']
+                        temp = status_data['temperature']
+                        # Let template system handle formatting - just provide basic result
+                        result = f"CPU {cpu['usage_percent']}%, Memory {memory['usage_percent']}%"
+                        if temp['success']:
+                            result += f", Temp {temp['celsius']}C"
+                        response = generate_response(intent, result, language=detected_lang, parameters=status_data)
+                        speak(response, language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot check the system status, sir.", language=speak_lang)
+
+                # General intents
+                elif intent == 'joke':
+                    joke_data = general.tell_joke(language=detected_lang)
+                    if joke_data["success"]:
+                        speak(joke_data['joke'], language=speak_lang)
+                    else:
+                        speak("I'm afraid my joke collection is unavailable at the moment, sir.", language=speak_lang)
+
+                elif intent == 'calculate':
+                    expression = params.get('expression', '')
+                    if expression:
+                        calc_data = general.calculate(expression)
+                        if calc_data["success"]:
+                            response = generate_response(intent, str(calc_data['result']), language=detected_lang, parameters=calc_data)
+                            speak(response, language=speak_lang)
+                        else:
+                            speak(f"I'm afraid I cannot calculate that, sir. {calc_data['error']}", language=speak_lang)
+                    else:
+                        speak("I need an expression to calculate, sir.", language=speak_lang)
+
+                # Generic acknowledgment for other intents
+                elif intent != 'general_chat':
+                    if speak_lang == 'italian':
+                        speak(f"Capito signore, richiesta {intent} ricevuta.", language="italian")
+                    else:
+                        speak(f"Understood sir, {intent} request received.", language="english")
 
             if os.path.exists(audio_file):
                 os.remove(audio_file)
@@ -361,4 +559,5 @@ while True:
 
     except KeyboardInterrupt:
         print("\n🛑 Exiting gracefully.")
+        speak("Goodbye sir, until next time.", language="english")
         break

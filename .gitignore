@@ -5,6 +5,10 @@ __pycache__/
 *.pyd
 *.log
 
+# --- API Keys & Configuration ---
+config.py
+.env
+
 # --- Virtual environment ---
 myvenv/
 venv/
