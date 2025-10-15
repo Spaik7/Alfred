@@ -15,6 +15,13 @@ try:
 except ImportError:
     DEFAULT_LOCATION = "Santhia"
 
+# Import fuzzy city matcher
+try:
+    from functions.fuzzy_city_matcher import fuzzy_match_city
+except ImportError:
+    # Fallback if fuzzy matcher not available
+    def fuzzy_match_city(city): return city
+
 def get_coordinates(location: str) -> Optional[Dict]:
     """
     Get latitude and longitude for a location using geocoding
@@ -61,14 +68,31 @@ def get_weather(language, location: str = None) -> dict:
     """
     if location is None:
         location = DEFAULT_LOCATION
+
+    # Try fuzzy matching for Italian cities if geocoding fails
+    original_location = location
+
     try:
         # Get coordinates for the location
         coords = get_coordinates(location)
         if not coords:
-            return {
-                "success": False,
-                "error": f"Location '{location}' not found"
-            }
+            # Try fuzzy matching
+            fuzzy_match = fuzzy_match_city(location, threshold=0.6)
+            if fuzzy_match:
+                coords = get_coordinates(fuzzy_match)
+                if coords:
+                    # Successfully matched!
+                    pass
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Location '{original_location}' not found (tried: {fuzzy_match})"
+                    }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Location '{original_location}' not found"
+                }
 
         # Get weather data from Open-Meteo
         response = requests.get(

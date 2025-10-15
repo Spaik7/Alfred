@@ -632,8 +632,11 @@ class IntentParser:
     
     def parse(self, text: str) -> Dict[str, Any]:
         """Parse intent from text"""
+        # Clean the text more aggressively - remove all trailing punctuation
         text_clean = text.strip().lower()
-        
+        # Remove common punctuation that whisper adds
+        text_clean = text_clean.rstrip('.,!?;:')
+
         # Detect language first
         language = self.detect_language(text_clean)
         

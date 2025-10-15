@@ -19,6 +19,37 @@ except ImportError:
     GOOGLE_MAPS_API_KEY = None
     DEFAULT_LOCATION = "Santhia, Italy"
 
+# Import fuzzy city matcher
+try:
+    from functions.fuzzy_city_matcher import fuzzy_match_city
+except ImportError:
+    # Fallback if fuzzy matcher not available
+    def fuzzy_match_city(city): return city
+
+
+def try_fuzzy_match_location(location: str) -> str:
+    """
+    Try to fuzzy match a location name, with fallback to original
+
+    Args:
+        location: Original location string (may include country, etc)
+
+    Returns:
+        Matched location or original if no match
+    """
+    # Extract just the city name (before comma if present)
+    city_part = location.split(',')[0].strip()
+
+    # Try fuzzy matching
+    matched = fuzzy_match_city(city_part, threshold=0.6)
+    if matched:
+        # Return matched city with rest of location string
+        rest = ','.join(location.split(',')[1:])
+        return f"{matched}{', ' + rest if rest.strip() else ''}"
+
+    return location
+
+
 def parse_time_to_timestamp(time_str: str) -> int:
     """
     Parse time string to Unix timestamp for arrival_time
@@ -84,6 +115,10 @@ def get_travel_time(origin: str, destination: str, mode: str = "driving") -> dic
             "success": False,
             "error": "Google Maps API key not configured"
         }
+
+    # Try fuzzy matching for both locations
+    origin = try_fuzzy_match_location(origin)
+    destination = try_fuzzy_match_location(destination)
 
     try:
         response = requests.get(
@@ -153,6 +188,12 @@ def get_traffic_status(origin: str, destination: str, arrival_time: str = None) 
     # Use default location if origin is None
     if origin is None:
         origin = DEFAULT_LOCATION
+
+    # Try fuzzy matching for destination (and origin if it's not default)
+    original_destination = destination
+    if origin != DEFAULT_LOCATION:
+        origin = try_fuzzy_match_location(origin)
+    destination = try_fuzzy_match_location(destination)
 
     try:
         # NOTE: Google Maps API does NOT support arrival_time for driving mode
@@ -253,6 +294,11 @@ def get_public_transit(origin: str, destination: str, arrival_time: str = None) 
     # Use default location if origin is None
     if origin is None:
         origin = DEFAULT_LOCATION
+
+    # Try fuzzy matching for destination (and origin if it's not default)
+    if origin != DEFAULT_LOCATION:
+        origin = try_fuzzy_match_location(origin)
+    destination = try_fuzzy_match_location(destination)
 
     try:
         # Build API parameters
