@@ -1,23 +1,24 @@
 import sounddevice as sd
 import numpy as np
-import librosa
-import onnxruntime as ort
-import subprocess
-import time
-from tqdm import tqdm
-from scipy.io.wavfile import write
-import gc
-import requests
 import os
 import sys
 import argparse
 from pathlib import Path
+from scipy.io.wavfile import write
+import gc
+
 from functions.intents import parse_intent
 from functions.tts_engine import TTSEngine, Language
-from functions import volume_control, time_date, system, general, weather
-from functions.response_generator import generate_response as generate_ai_response
-from functions.response_templates import generate_template_response
-from config import RESPONSE_MODE, AI_MODEL
+from functions import volume_control, time_date, system, general, weather, news, finance, food, transport
+from functions.function import (
+    generate_response,
+    load_model_with_progress,
+    record_audio,
+    extract_features,
+    record_until_silence,
+    transcribe
+)
+from config import RESPONSE_MODE, AI_MODEL, FINANCE_WATCHLIST
 
 # =============================
 #     COMMAND LINE ARGUMENTS
@@ -147,42 +148,6 @@ def speak(text: str, language: str = "english"):
     else:
         print("   [TTS disabled]")
 
-# =============================
-#    RESPONSE GENERATION
-# =============================
-def generate_response(intent: str, result: str, language: str = "en", parameters: dict = None):
-    """
-    Unified response generation - switches between template and AI modes
-
-    Args:
-        intent: Intent type (e.g., "weather", "time", "volume_up")
-        result: Result value to include in response
-        language: Language code ("en" or "it")
-        parameters: Additional parameters for response generation
-
-    Returns:
-        Generated response string
-    """
-    if RESPONSE_MODE == "template":
-        return generate_template_response(intent, result, language, parameters)
-    else:  # AI mode
-        return generate_ai_response(intent, result, language, parameters)
-
-# =============================
-#      MODEL LOADING
-# =============================
-def load_model_with_progress(path):
-    print(f"Loading ONNX model '{path}' ...")
-    with tqdm(total=100) as pbar:
-        for _ in range(10):
-            time.sleep(0.05)
-            pbar.update(10)
-
-    # Load ONNX model with ONNX Runtime
-    session = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
-
-    print("✅ Model loaded successfully!")
-    return session
 
 # =============================
 #      MODEL CHECK
@@ -229,130 +194,6 @@ wake_word_name = "Alfred"
 wake_threshold = args.threshold  # from command line args
 audio_file = "last_command.wav"
 
-# =============================
-#     AUDIO HELPERS
-# =============================
-def record_audio(duration=1.5, rate=48000):
-    """Record audio at device's native sample rate"""
-    recording = sd.rec(int(duration * rate),
-                       samplerate=rate,
-                       channels=1,
-                       device=device_index,
-                       dtype='float32')
-    sd.wait()
-    return recording.flatten()
-
-def extract_features(audio, sr=48000, target_sr=16000):
-    """Extract MFCC features matching training pipeline"""
-    # Resample to 16kHz (matching training data)
-    if sr != target_sr:
-        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
-
-    # Extract 13 MFCCs (matching training)
-    mfcc = librosa.feature.mfcc(y=audio, sr=target_sr, n_mfcc=13)
-    mfcc = mfcc.T  # (time, features)
-
-    # Pad or truncate to 29 frames (matching training)
-    if len(mfcc) < 29:
-        mfcc = np.pad(mfcc, ((0, 29 - len(mfcc)), (0, 0)), mode='constant')
-    else:
-        mfcc = mfcc[:29]
-
-    # Normalize (matching training)
-    mfcc = (mfcc - np.mean(mfcc)) / (np.std(mfcc) + 1e-8)
-
-    # Return as numpy array with batch dimension for ONNX
-    return np.expand_dims(mfcc, axis=0).astype(np.float32)  # (1, 29, 13)
-
-def record_until_silence(rate=48000, silence_threshold=0.01, silence_duration=1.5, max_duration=10, device=None):
-    """Record audio until user stops talking"""
-    chunk_duration = 0.5  # seconds per chunk
-    chunk_samples = int(chunk_duration * rate)
-
-    print("🎤 Listening... (speak now)")
-
-    audio_chunks = []
-    silent_chunks = 0
-    silence_chunks_needed = int(silence_duration / chunk_duration)
-    max_chunks = int(max_duration / chunk_duration)
-
-    for _ in range(max_chunks):
-        # Record chunk
-        chunk = sd.rec(chunk_samples, samplerate=rate, channels=1, device=device, dtype='float32')
-        sd.wait()
-        chunk = chunk.flatten()
-        audio_chunks.append(chunk)
-
-        # Calculate energy (RMS)
-        energy = np.sqrt(np.mean(chunk**2))
-
-        # Check if silent
-        if energy < silence_threshold:
-            silent_chunks += 1
-            if silent_chunks >= silence_chunks_needed:
-                print("🔇 Silence detected, stopping...")
-                break
-        else:
-            silent_chunks = 0  # Reset counter if speech detected
-
-    # Concatenate all chunks
-    full_audio = np.concatenate(audio_chunks)
-    return full_audio
-
-# =============================
-#    WHISPER TRANSCRIPTION
-# =============================
-def transcribe_with_whisper_local(file_path, model='base'):
-    """Transcribe using local Whisper CLI"""
-    try:
-        result = subprocess.run(
-            ['whisper', file_path, '--model', model, '--output_format', 'txt'],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        if result.returncode == 0:
-            # Whisper saves output as filename.txt
-            txt_file = file_path.replace('.wav', '.txt')
-            if os.path.exists(txt_file):
-                with open(txt_file, 'r') as f:
-                    transcription = f.read().strip()
-                os.remove(txt_file)  # Clean up
-                return transcription
-        else:
-            print("⚠ Whisper local error:", result.stderr)
-            return ""
-    except FileNotFoundError:
-        print("❌ Whisper not found. Install with: pip install openai-whisper")
-        return ""
-    except Exception as e:
-        print("❌ Error calling local Whisper:", e)
-        return ""
-
-def transcribe_with_whisper_docker(file_path, api_url):
-    """Transcribe using Docker Whisper API"""
-    try:
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(api_url, files=files, timeout=60)
-        response.raise_for_status()
-        data = response.json()
-        if data.get("success"):
-            return data.get("transcription", "")
-        else:
-            print("⚠ Whisper Docker returned error:", data)
-            return ""
-    except Exception as e:
-        print("❌ Error calling Whisper Docker API:", e)
-        return ""
-
-def transcribe(file_path):
-    """Main transcription function that routes to local or docker"""
-    if args.whisper == 'local':
-        return transcribe_with_whisper_local(file_path, model=args.whisper_model)
-    else:
-        api_url = f"http://{args.docker_ip}/audio"
-        return transcribe_with_whisper_docker(file_path, api_url)
 
 # =============================
 #   VOLUME INITIALIZATION
@@ -402,7 +243,7 @@ print("=" * 60 + "\n")
 while True:
     try:
         # Record audio for wake word detection (48kHz, then resampled to 16kHz)
-        audio = record_audio(duration, fs)
+        audio = record_audio(duration, fs, device_index)
         features = extract_features(audio, sr=fs, target_sr=target_sr)
         del audio
         gc.collect()
@@ -435,7 +276,7 @@ while True:
             gc.collect()
 
             print("🎧 Transcribing command...")
-            command = transcribe(audio_file)
+            command = transcribe(audio_file, args.whisper, args.whisper_model, args.docker_ip)
             print(f"🗣 You said: {command}")
 
             # Parse intent
@@ -544,6 +385,181 @@ while True:
                             speak(f"I'm afraid I cannot calculate that, sir. {calc_data['error']}", language=speak_lang)
                     else:
                         speak("I need an expression to calculate, sir.", language=speak_lang)
+
+                # News intents
+                elif intent == 'news':
+                    # Get multi-country headlines (Italy + US by default)
+                    news_data = news.get_multi_country_headlines(count_per_country=3)
+                    if news_data["success"] and news_data["articles"]:
+                        # Speak summary
+                        total = len(news_data["articles"])
+                        if speak_lang == 'italian':
+                            speak(f"Ecco le ultime {total} notizie, signore:", language="italian")
+                        else:
+                            speak(f"Here are the latest {total} headlines, sir:", language="english")
+
+                        # Read first 5 headlines
+                        for i, article in enumerate(news_data["articles"][:5], 1):
+                            country = article.get('country', '')
+                            title = article['title']
+                            if country:
+                                speak(f"{country}: {title}", language=speak_lang)
+                            else:
+                                speak(f"{i}. {title}", language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot fetch the news at the moment, sir.", language=speak_lang)
+
+                # Finance intents
+                elif intent == 'finance' or intent == 'finance_watchlist':
+                    # Get full watchlist summary
+                    watchlist_data = finance.get_watchlist_summary(FINANCE_WATCHLIST)
+                    if watchlist_data["success"]:
+                        # Speak stocks
+                        if watchlist_data["stocks"]:
+                            if speak_lang == 'italian':
+                                speak("Azioni:", language="italian")
+                            else:
+                                speak("Stocks:", language="english")
+
+                            for stock in watchlist_data["stocks"]:
+                                change_dir = "up" if stock["change"] > 0 else "down"
+                                speak(f"{stock['name']}: ${stock['price']}, {change_dir} {abs(stock['change_percent'])}%", language=speak_lang)
+
+                        # Speak crypto
+                        if watchlist_data["crypto"]:
+                            if speak_lang == 'italian':
+                                speak("Criptovalute:", language="italian")
+                            else:
+                                speak("Crypto:", language="english")
+
+                            for crypto in watchlist_data["crypto"]:
+                                change_dir = "up" if crypto["change_24h"] > 0 else "down"
+                                speak(f"{crypto['name']}: ${crypto['price_usd']}, {change_dir} {abs(crypto['change_24h'])}%", language=speak_lang)
+
+                        # Speak forex
+                        if watchlist_data["forex"]:
+                            if speak_lang == 'italian':
+                                speak("Cambi:", language="italian")
+                            else:
+                                speak("Forex:", language="english")
+
+                            for pair in watchlist_data["forex"]:
+                                speak(f"{pair['from']}/{pair['to']}: {pair['rate']}", language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot fetch financial data at the moment, sir.", language=speak_lang)
+
+                # Recipe intents
+                elif intent == 'recipe_search':
+                    query = params.get('query', '')
+                    if query:
+                        recipe_data = food.search_recipes(query, count=3)
+                        if recipe_data["success"] and recipe_data["recipes"]:
+                            total = len(recipe_data["recipes"])
+                            if speak_lang == 'italian':
+                                speak(f"Ho trovato {total} ricette per {query}, signore:", language="italian")
+                            else:
+                                speak(f"I found {total} recipes for {query}, sir:", language="english")
+
+                            for recipe in recipe_data["recipes"]:
+                                speak(f"{recipe['name']} from {recipe['area']}", language=speak_lang)
+                        else:
+                            speak(f"I'm afraid I couldn't find recipes for {query}, sir.", language=speak_lang)
+                    else:
+                        speak("I need a recipe name or ingredient, sir.", language=speak_lang)
+
+                elif intent == 'recipe_random':
+                    recipe_data = food.get_random_recipe()
+                    if recipe_data["success"]:
+                        recipe = recipe_data['recipe']
+                        if speak_lang == 'italian':
+                            speak(f"Suggerisco {recipe['name']}, un piatto {recipe['area']}, signore.", language="italian")
+                        else:
+                            speak(f"I suggest {recipe['name']}, a {recipe['area']} dish, sir.", language="english")
+
+                        # Optionally speak category
+                        if recipe.get('category'):
+                            speak(f"Category: {recipe['category']}", language=speak_lang)
+                    else:
+                        speak("I'm afraid I cannot get a recipe suggestion at the moment, sir.", language=speak_lang)
+
+                # Transport intents
+                elif intent == 'transport_car':
+                    destination = params.get('destination', '')
+                    arrival_time = params.get('arrival_time', None)
+
+                    if destination:
+                        traffic_data = transport.get_traffic_status(None, destination, arrival_time)
+                        if traffic_data["success"]:
+                            travel_duration = traffic_data['duration_text']
+                            traffic = traffic_data['delay_minutes']
+                            departure_time = traffic_data.get('departure_time')
+
+                            # If arrival time was specified, tell when to leave
+                            if arrival_time and departure_time:
+                                if speak_lang == 'italian':
+                                    speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian")
+                                else:
+                                    speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english")
+                            else:
+                                if speak_lang == 'italian':
+                                    speak(f"Per arrivare a {destination} ci vogliono {travel_duration}, signore.", language="italian")
+                                else:
+                                    speak(f"It will take {travel_duration} to get to {destination}, sir.", language="english")
+
+                            # Mention traffic if significant
+                            if traffic > 5:
+                                if speak_lang == 'italian':
+                                    speak(f"C'è traffico, {traffic} minuti di ritardo.", language="italian")
+                                else:
+                                    speak(f"There's traffic, {traffic} minutes delay.", language="english")
+                        else:
+                            speak(f"I'm afraid I cannot get directions to {destination}, sir.", language=speak_lang)
+                    else:
+                        speak("I need a destination, sir.", language=speak_lang)
+
+                elif intent == 'transport_public':
+                    destination = params.get('destination', '')
+                    arrival_time = params.get('arrival_time', None)
+
+                    if destination:
+                        transit_data = transport.get_public_transit(None, destination, arrival_time)
+                        if transit_data["success"]:
+                            travel_duration = transit_data['duration']
+                            transit_steps = transit_data['transit_steps']
+                            departure_time = transit_data.get('departure_time')
+
+                            # If arrival time was specified, tell when to leave
+                            if arrival_time and departure_time:
+                                if speak_lang == 'italian':
+                                    speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian")
+                                else:
+                                    speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english")
+                            else:
+                                if speak_lang == 'italian':
+                                    speak(f"Per arrivare a {destination} con i mezzi pubblici ci vogliono {travel_duration}, signore.", language="italian")
+                                else:
+                                    speak(f"To get to {destination} by public transport takes {travel_duration}, sir.", language="english")
+
+                            # Count transfers
+                            if len(transit_steps) > 1:
+                                transfers = len(transit_steps) - 1
+                                if speak_lang == 'italian':
+                                    speak(f"Devi fare {transfers} cambi.", language="italian")
+                                else:
+                                    speak(f"You need to make {transfers} transfers.", language="english")
+
+                            # Speak first transit line
+                            if transit_steps:
+                                first_step = transit_steps[0]
+                                line = first_step.get('line', 'Unknown')
+                                if speak_lang == 'italian':
+                                    speak(f"Prendi la linea {line}.", language="italian")
+                                else:
+                                    speak(f"Take line {line}.", language="english")
+                        else:
+                            speak(f"I'm afraid I cannot get public transport directions to {destination}, sir.", language=speak_lang)
+                    else:
+                        speak("I need a destination, sir.", language=speak_lang)
 
                 # Generic acknowledgment for other intents
                 elif intent != 'general_chat':
