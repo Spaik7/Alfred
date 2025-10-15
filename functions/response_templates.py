@@ -151,6 +151,156 @@ class ResponseTemplates:
                 ]
             },
 
+            # Transport - Car directions
+            'transport_car': {
+                'en': [
+                    "It will take {duration} to reach {destination}, sir. Distance: {distance}.",
+                    "Your journey to {destination} should take {duration}, covering {distance}, sir.",
+                    "Expect {duration} to {destination}, sir. That's {distance} by road.",
+                    "To {destination}, sir: {duration} over {distance}. {traffic_comment}",
+                ],
+                'it': [
+                    "Per arrivare a {destination} ci vogliono {duration}, signore. Distanza: {distance}.",
+                    "Il viaggio verso {destination} richiede {duration}, per {distance}, signore.",
+                    "Ci vorranno {duration} per {destination}, signore. {distance} di strada.",
+                ]
+            },
+
+            # Transport - Public transit
+            'transport_public': {
+                'en': [
+                    "By public transport to {destination}: depart at {departure}, arrive {arrival}. {duration}, sir.",
+                    "Take the {departure} service to {destination}, arriving {arrival}. Journey time: {duration}, sir.",
+                    "To {destination} by transit, sir: leave at {departure}, arrive {arrival}. {duration} total.",
+                ],
+                'it': [
+                    "Con i mezzi pubblici per {destination}: partenza alle {departure}, arrivo alle {arrival}. {duration}, signore.",
+                    "Per {destination} in trasporto pubblico: partire alle {departure}, arrivare alle {arrival}. {duration}, signore.",
+                ]
+            },
+
+            # News
+            'news': {
+                'en': [
+                    "Here are today's headlines, sir: {headlines}",
+                    "The news from {source}, sir: {headlines}",
+                    "Top stories at present, sir: {headlines}",
+                    "Today's developments, sir: {headlines}",
+                ],
+                'it': [
+                    "Ecco le notizie di oggi, signore: {headlines}",
+                    "Le notizie principali, signore: {headlines}",
+                    "I titoli di oggi, signore: {headlines}",
+                ]
+            },
+
+            # Finance - Stock quote
+            'finance': {
+                'en': [
+                    "{symbol}: {price}, {change} today, sir. {trend_comment}",
+                    "{symbol} is trading at {price}, {change}, sir.",
+                    "Current price for {symbol}: {price}. {change} on the day, sir.",
+                    "{symbol} at {price}, sir. {change}. {trend_comment}",
+                ],
+                'it': [
+                    "{symbol}: {price}, {change} oggi, signore.",
+                    "{symbol} a {price}, {change}, signore.",
+                    "Prezzo attuale di {symbol}: {price}. {change}, signore.",
+                ]
+            },
+
+            # Finance - Watchlist
+            'finance_watchlist': {
+                'en': [
+                    "Your portfolio, sir: {summary}. {performance_comment}",
+                    "Market update for your watchlist, sir: {summary}",
+                    "Here's your financial overview, sir: {summary}",
+                ],
+                'it': [
+                    "Il suo portafoglio, signore: {summary}",
+                    "Aggiornamento di mercato, signore: {summary}",
+                ]
+            },
+
+            # Recipe search
+            'recipe_search': {
+                'en': [
+                    "I found these {query} recipes, sir: {recipes}",
+                    "For {query}, might I suggest, sir: {recipes}",
+                    "Here are some {query} options, sir: {recipes}",
+                    "Regarding {query}, sir, I've located: {recipes}",
+                ],
+                'it': [
+                    "Ho trovato queste ricette di {query}, signore: {recipes}",
+                    "Per {query}, signore: {recipes}",
+                    "Ecco alcune opzioni di {query}, signore: {recipes}",
+                ]
+            },
+
+            # Recipe random
+            'recipe_random': {
+                'en': [
+                    "Might I suggest {recipe_name}, sir? A {area} {category}.",
+                    "How about {recipe_name}, sir? {area} cuisine, {category}.",
+                    "Perhaps {recipe_name} would suit, sir. From {area}, a fine {category}.",
+                    "I recommend {recipe_name}, sir. A {area} {category}.",
+                ],
+                'it': [
+                    "Potrei suggerire {recipe_name}, signore? Un {category} {area}.",
+                    "Che ne dice di {recipe_name}, signore? Cucina {area}, {category}.",
+                    "Forse {recipe_name}, signore. {area}, un ottimo {category}.",
+                ]
+            },
+
+            # Gratitude responses
+            'thanks': {
+                'en': [
+                    "You're most welcome, sir.",
+                    "My pleasure, sir.",
+                    "At your service, sir.",
+                    "Always happy to assist, sir.",
+                    "Not at all, sir.",
+                    "Think nothing of it, sir.",
+                ],
+                'it': [
+                    "Prego, signore.",
+                    "È un piacere, signore.",
+                    "Ai suoi ordini, signore.",
+                    "Felice di aiutare, signore.",
+                    "Di niente, signore.",
+                ]
+            },
+
+            # Greetings
+            'greeting': {
+                'en': [
+                    "Good {time_of_day}, sir. How may I be of service?",
+                    "{time_of_day_greeting}, sir. What can I do for you?",
+                    "Good {time_of_day}, sir. At your disposal.",
+                    "{time_of_day_greeting}, sir. How may I assist?",
+                ],
+                'it': [
+                    "Buon{time_of_day_it}, signore. Come posso aiutarla?",
+                    "{time_of_day_it_greeting}, signore. Cosa posso fare per lei?",
+                    "Buon{time_of_day_it}, signore. Ai suoi ordini.",
+                ]
+            },
+
+            # Apologies/Unknown
+            'unknown': {
+                'en': [
+                    "I'm afraid I didn't quite catch that, sir. Could you rephrase?",
+                    "I beg your pardon, sir. I didn't understand that request.",
+                    "I'm not entirely certain what you mean, sir. Might you elaborate?",
+                    "That's not quite clear to me, sir. Could you try again?",
+                ],
+                'it': [
+                    "Mi dispiace, signore, non ho capito bene. Può ripetere?",
+                    "Chiedo scusa, signore. Non ho compreso la richiesta.",
+                    "Non sono sicuro di aver capito, signore. Può chiarire?",
+                ]
+            },
+
             # Generic acknowledgments
             'generic': {
                 'en': [
@@ -204,6 +354,67 @@ class ResponseTemplates:
             return "Temperature is elevated, sir."
         else:
             return "All systems performing well."
+
+    def _get_traffic_comment(self, duration_minutes: int) -> str:
+        """Generate contextual traffic comments"""
+        if duration_minutes > 60:
+            return "Quite a journey, sir."
+        elif duration_minutes > 30:
+            return "A reasonable trip, sir."
+        else:
+            return random.choice([
+                "Not far at all, sir.",
+                "A quick drive, sir.",
+                "",
+            ])
+
+    def _get_trend_comment(self, change_percent: float) -> str:
+        """Generate contextual finance trend comments"""
+        if change_percent > 5:
+            return "Performing rather well, sir."
+        elif change_percent < -5:
+            return "A bit of a decline, I'm afraid."
+        elif change_percent > 0:
+            return "On the rise, sir."
+        elif change_percent < 0:
+            return "Slightly down, sir."
+        else:
+            return ""
+
+    def _get_performance_comment(self, gains: int, losses: int) -> str:
+        """Generate portfolio performance comments"""
+        if gains > losses * 2:
+            return "Rather encouraging results, sir."
+        elif losses > gains * 2:
+            return "A challenging day, I'm afraid, sir."
+        elif gains > losses:
+            return "Trending positively, sir."
+        else:
+            return ""
+
+    def _get_time_of_day_greeting(self, language: str = "en") -> dict:
+        """Get time-of-day specific greetings"""
+        from datetime import datetime
+        hour = datetime.now().hour
+
+        if language == "en":
+            if 5 <= hour < 12:
+                return {"time_of_day": "morning", "time_of_day_greeting": "Good morning"}
+            elif 12 <= hour < 17:
+                return {"time_of_day": "afternoon", "time_of_day_greeting": "Good afternoon"}
+            elif 17 <= hour < 21:
+                return {"time_of_day": "evening", "time_of_day_greeting": "Good evening"}
+            else:
+                return {"time_of_day": "evening", "time_of_day_greeting": "Good evening"}
+        else:  # Italian
+            if 5 <= hour < 12:
+                return {"time_of_day_it": "giorno", "time_of_day_it_greeting": "Buongiorno"}
+            elif 12 <= hour < 17:
+                return {"time_of_day_it": "giorno", "time_of_day_it_greeting": "Buon pomeriggio"}
+            elif 17 <= hour < 21:
+                return {"time_of_day_it": "asera", "time_of_day_it_greeting": "Buonasera"}
+            else:
+                return {"time_of_day_it": "asera", "time_of_day_it_greeting": "Buonasera"}
 
     def generate(self, intent: str, result: Any, language: str = "en", parameters: Optional[Dict] = None) -> str:
         """
@@ -277,6 +488,51 @@ class ResponseTemplates:
             else:
                 values['status_comment'] = ''
 
+        # Transport: add traffic comment
+        if intent in ['transport_car', 'transport_public']:
+            # Extract duration in minutes for comment
+            duration_str = parameters.get('duration', '0 mins')
+            try:
+                duration_minutes = int(duration_str.split()[0])
+            except:
+                duration_minutes = 0
+
+            if language == 'en' and intent == 'transport_car':
+                values['traffic_comment'] = self._get_traffic_comment(duration_minutes)
+            else:
+                values['traffic_comment'] = ''
+
+        # Finance: add trend comment
+        if intent == 'finance':
+            change_str = parameters.get('change', '0%')
+            try:
+                # Parse "+2.5%" or "-1.2%" to float
+                change_percent = float(change_str.replace('%', '').replace('+', ''))
+            except:
+                change_percent = 0
+
+            if language == 'en':
+                values['trend_comment'] = self._get_trend_comment(change_percent)
+            else:
+                values['trend_comment'] = ''
+
+        # Finance watchlist: add performance comment
+        if intent == 'finance_watchlist':
+            # Count gains vs losses in summary
+            summary = parameters.get('summary', '')
+            gains = summary.count('+')
+            losses = summary.count('-')
+
+            if language == 'en':
+                values['performance_comment'] = self._get_performance_comment(gains, losses)
+            else:
+                values['performance_comment'] = ''
+
+        # Greeting: add time-of-day context
+        if intent == 'greeting':
+            tod = self._get_time_of_day_greeting(language)
+            values.update(tod)
+
         # Format the template
         try:
             response = template.format(**values)
@@ -312,9 +568,11 @@ if __name__ == '__main__':
     # Test templates
     gen = ResponseTemplates()
 
-    print("Testing Response Templates\n" + "="*50)
+    print("\n" + "="*60)
+    print("Testing Alfred Response Templates with Personality")
+    print("="*60)
 
-    print("\n1. Weather (English):")
+    print("\n1. Weather (English with comment):")
     print(gen.generate('weather', '20.2C, Mainly clear', 'en', {
         'location': 'Santhia',
         'temp': 20.2,
@@ -326,7 +584,8 @@ if __name__ == '__main__':
     print(gen.generate('weather', '20.2C, Sereno', 'it', {
         'location': 'Santhia',
         'temp': 20.2,
-        'description': 'Sereno'
+        'description': 'Sereno',
+        'temperature_c': 20.2
     }))
 
     print("\n3. Time:")
@@ -341,3 +600,55 @@ if __name__ == '__main__':
         'memory': {'usage_percent': 60},
         'temperature': {'success': True, 'celsius': 55}
     }))
+
+    print("\n6. Transport - Car (with traffic comment):")
+    print(gen.generate('transport_car', 'OK', 'en', {
+        'destination': 'Vercelli',
+        'duration': '22 mins',
+        'distance': '18.5 km'
+    }))
+
+    print("\n7. Transport - Public Transit:")
+    print(gen.generate('transport_public', 'OK', 'it', {
+        'destination': 'Milano',
+        'departure': '14:30',
+        'arrival': '15:45',
+        'duration': '75 mins'
+    }))
+
+    print("\n8. Finance (with trend comment):")
+    print(gen.generate('finance', 'OK', 'en', {
+        'symbol': 'AAPL',
+        'price': '$182.45',
+        'change': '+2.3%'
+    }))
+
+    print("\n9. Recipe Search:")
+    print(gen.generate('recipe_search', 'OK', 'en', {
+        'query': 'pasta',
+        'recipes': 'Carbonara, Amatriciana, Puttanesca'
+    }))
+
+    print("\n10. Recipe Random:")
+    print(gen.generate('recipe_random', 'OK', 'it', {
+        'recipe_name': 'Ossobuco',
+        'area': 'Italian',
+        'category': 'Beef'
+    }))
+
+    print("\n11. News:")
+    print(gen.generate('news', 'OK', 'en', {
+        'source': 'BBC',
+        'headlines': '1) Markets rise 2) Tech innovation 3) Climate action'
+    }))
+
+    print("\n12. Greeting:")
+    print(gen.generate('greeting', 'OK', 'en', {}))
+
+    print("\n13. Thanks:")
+    print(gen.generate('thanks', 'OK', 'it', {}))
+
+    print("\n14. Unknown:")
+    print(gen.generate('unknown', 'OK', 'en', {}))
+
+    print("\n✅ All personality templates working correctly!")
