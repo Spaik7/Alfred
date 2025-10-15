@@ -28,4 +28,5 @@ Output: "I'm afraid I'm experiencing some difficulty connecting, sir. Might I su
 PARAMETER temperature 0.9
 PARAMETER top_p 0.95
 PARAMETER top_k 50
-PARAMETER num_predict 200
+PARAMETER num_predict 100
+PARAMETER stop "Input:"

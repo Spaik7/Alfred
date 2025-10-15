@@ -25,61 +25,61 @@ class Language(Enum):
 
 class IntentType(Enum):
     # Basic queries
-    WEATHER = "weather"
-    TIME = "time"
-    DATE = "date"
-    
+    WEATHER = "weather"                      # AI (minimal essential data only)
+    TIME = "time"                            # TEMPLATE (simple_templates.py)
+    DATE = "date"                            # TEMPLATE (simple_templates.py)
+
     # Email
-    EMAIL_CHECK = "email_check"
-    EMAIL_READ = "email_read"
-    EMAIL_SEND = "email_send"
-    EMAIL_SEARCH = "email_search"
-    
+    EMAIL_CHECK = "email_check"              # NOT IMPLEMENTED
+    EMAIL_READ = "email_read"                # NOT IMPLEMENTED
+    EMAIL_SEND = "email_send"                # NOT IMPLEMENTED
+    EMAIL_SEARCH = "email_search"            # NOT IMPLEMENTED
+
     # Calendar
-    CALENDAR_TODAY = "calendar_today"
-    CALENDAR_WEEK = "calendar_week"
-    CALENDAR_NEXT = "calendar_next"
-    CALENDAR_CREATE = "calendar_create"
-    
+    CALENDAR_TODAY = "calendar_today"        # NOT IMPLEMENTED
+    CALENDAR_WEEK = "calendar_week"          # NOT IMPLEMENTED
+    CALENDAR_NEXT = "calendar_next"          # NOT IMPLEMENTED
+    CALENDAR_CREATE = "calendar_create"      # NOT IMPLEMENTED
+
     # System
-    SYSTEM_STATUS = "system_status"
-    SYSTEM_SHUTDOWN = "system_shutdown"
-    VOLUME_UP = "volume_up"
-    VOLUME_DOWN = "volume_down"
-    VOLUME_SET = "volume_set"
+    SYSTEM_STATUS = "system_status"          # AI (combines multiple metrics)
+    SYSTEM_SHUTDOWN = "system_shutdown"      # NOT IMPLEMENTED
+    VOLUME_UP = "volume_up"                  # TEMPLATE (simple_templates.py)
+    VOLUME_DOWN = "volume_down"              # TEMPLATE (simple_templates.py)
+    VOLUME_SET = "volume_set"                # TEMPLATE (simple_templates.py)
 
     # Mac control
-    MAC_OPEN_APP = "mac_open_app"
-    MAC_CLOSE_APP = "mac_close_app"
-    MAC_VOLUME = "mac_volume"
-    MAC_SLEEP = "mac_sleep"
-    MAC_LOCK = "mac_lock"
-    
+    MAC_OPEN_APP = "mac_open_app"            # NOT IMPLEMENTED
+    MAC_CLOSE_APP = "mac_close_app"          # NOT IMPLEMENTED
+    MAC_VOLUME = "mac_volume"                # NOT IMPLEMENTED
+    MAC_SLEEP = "mac_sleep"                  # NOT IMPLEMENTED
+    MAC_LOCK = "mac_lock"                    # NOT IMPLEMENTED
+
     # Messaging
-    TELEGRAM_SEND = "telegram_send"
-    TELEGRAM_CHECK = "telegram_check"
-    TELEGRAM_READ = "telegram_read"
-    WHATSAPP_SEND = "whatsapp_send"
-    WHATSAPP_CHECK = "whatsapp_check"
-    WHATSAPP_READ = "whatsapp_read"
-    
+    TELEGRAM_SEND = "telegram_send"          # NOT IMPLEMENTED
+    TELEGRAM_CHECK = "telegram_check"        # NOT IMPLEMENTED
+    TELEGRAM_READ = "telegram_read"          # NOT IMPLEMENTED
+    WHATSAPP_SEND = "whatsapp_send"          # NOT IMPLEMENTED
+    WHATSAPP_CHECK = "whatsapp_check"        # NOT IMPLEMENTED
+    WHATSAPP_READ = "whatsapp_read"          # NOT IMPLEMENTED
+
     # General
-    JOKE = "joke"
-    TRANSLATE = "translate"
-    CALCULATE = "calculate"
-    GENERAL_CHAT = "general_chat"
+    JOKE = "joke"                            # TEMPLATE (simple_templates.py - returns joke as-is)
+    TRANSLATE = "translate"                  # NOT IMPLEMENTED
+    CALCULATE = "calculate"                  # TEMPLATE (simple_templates.py)
+    GENERAL_CHAT = "general_chat"            # NOT IMPLEMENTED (fallback intent)
 
     # Information & Services
-    NEWS = "news"
-    FINANCE = "finance"
-    FINANCE_WATCHLIST = "finance_watchlist"
-    RECIPE_SEARCH = "recipe_search"
-    RECIPE_RANDOM = "recipe_random"
-    TRANSPORT_CAR = "transport_car"
-    TRANSPORT_PUBLIC = "transport_public"
+    NEWS = "news"                            # SPECIAL HANDLING (multiple headlines)
+    FINANCE = "finance"                      # SPECIAL HANDLING (multiple stocks)
+    FINANCE_WATCHLIST = "finance_watchlist"  # SPECIAL HANDLING (multiple stocks)
+    RECIPE_SEARCH = "recipe_search"          # SPECIAL HANDLING (multiple recipes)
+    RECIPE_RANDOM = "recipe_random"          # SPECIAL HANDLING (single recipe)
+    TRANSPORT_CAR = "transport_car"          # SPECIAL HANDLING (directions)
+    TRANSPORT_PUBLIC = "transport_public"    # SPECIAL HANDLING (transit steps)
 
     # Unknown
-    UNKNOWN = "unknown"
+    UNKNOWN = "unknown"                      # NOT IMPLEMENTED
 
 class IntentParser:
     """Rule-based intent parser with language detection"""

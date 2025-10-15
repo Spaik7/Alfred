@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
 Logging system for Alfred
-Provides structured logging with rotation and different log levels
+Simplified data-flow logging with daily rotation (7-day retention)
 """
 
 import logging
 import os
+import glob
 from pathlib import Path
-from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
+from datetime import datetime, timedelta
 from typing import Optional
+import json
 
 class AlfredLogger:
-    """Centralized logging for Alfred with rotation and formatting"""
+    """Simplified logging focusing on data flow: Input → Parser → Work → Output"""
 
     def __init__(self, log_dir: str = "logs", log_level: str = "INFO"):
         """
-        Initialize Alfred's logging system
+        Initialize Alfred's logging system with daily rotation
 
         Args:
             log_dir: Directory for log files
@@ -33,22 +35,25 @@ class AlfredLogger:
         if self.logger.handlers:
             self.logger.handlers.clear()
 
-        # File handler with rotation (10MB max, keep 5 backups)
+        # Daily rotating file handler
+        # Rotates at midnight, keeps 7 days
         log_file = self.log_dir / "alfred.log"
-        file_handler = RotatingFileHandler(
+        file_handler = TimedRotatingFileHandler(
             log_file,
-            maxBytes=10*1024*1024,  # 10MB
-            backupCount=5
+            when='midnight',
+            interval=1,
+            backupCount=7  # Keep 7 days
         )
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.INFO)
+        file_handler.suffix = "%Y-%m-%d"  # Date suffix for rotated files
 
-        # Console handler (for terminal output)
+        # Console handler (minimal output)
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARNING)  # Only warnings and errors to console
 
-        # Formatter with timestamp and module
+        # Formatter
         formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
+            '%(asctime)s | %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         file_handler.setFormatter(formatter)
@@ -58,92 +63,139 @@ class AlfredLogger:
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
 
-        # Create separate error log
-        error_file = self.log_dir / "errors.log"
-        error_handler = RotatingFileHandler(
-            error_file,
-            maxBytes=10*1024*1024,
-            backupCount=5
-        )
-        error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(formatter)
-        self.logger.addHandler(error_handler)
-
-        # Performance log
-        self.perf_logger = logging.getLogger("Alfred.Performance")
-        self.perf_logger.setLevel(logging.INFO)
-        perf_file = self.log_dir / "performance.log"
-        perf_handler = RotatingFileHandler(
-            perf_file,
-            maxBytes=5*1024*1024,
-            backupCount=3
-        )
-        perf_handler.setFormatter(formatter)
-        self.perf_logger.addHandler(perf_handler)
+        # Clean up old logs on startup
+        self._cleanup_old_logs()
 
         self.logger.info("=" * 80)
         self.logger.info("Alfred logging system initialized")
         self.logger.info(f"Log directory: {self.log_dir.absolute()}")
+        self.logger.info(f"Daily rotation enabled - keeping 7 days")
         self.logger.info("=" * 80)
 
-    # Command logging
-    def log_wake_word(self, confidence: float):
-        """Log wake word detection"""
-        self.logger.info(f"🎤 Wake word detected (confidence: {confidence:.3f})")
+    def _cleanup_old_logs(self):
+        """Remove log files older than 7 days"""
+        try:
+            cutoff_date = datetime.now() - timedelta(days=7)
 
-    def log_command(self, transcription: str):
-        """Log transcribed command"""
-        self.logger.info(f"📝 Command: '{transcription}'")
+            # Find all rotated log files (alfred.log.YYYY-MM-DD)
+            pattern = str(self.log_dir / "alfred.log.*")
+            old_logs = []
 
-    def log_intent(self, intent: str, language: str, confidence: float, parameters: dict):
-        """Log parsed intent"""
-        params_str = ", ".join(f"{k}={v}" for k, v in parameters.items()) if parameters else "none"
-        self.logger.info(f"🎯 Intent: {intent} | Language: {language} | Confidence: {confidence:.2f} | Params: {params_str}")
+            for log_file in glob.glob(pattern):
+                # Extract date from filename
+                try:
+                    # Format: alfred.log.2025-10-15
+                    date_str = log_file.split('.')[-1]
+                    log_date = datetime.strptime(date_str, "%Y-%m-%d")
 
-    def log_response(self, response: str, language: str):
-        """Log Alfred's response"""
-        self.logger.info(f"💬 Response ({language}): {response[:100]}...")
+                    if log_date < cutoff_date:
+                        old_logs.append(log_file)
+                        os.remove(log_file)
+                except (ValueError, OSError):
+                    continue
 
-    def log_tts(self, text: str, voice: str):
-        """Log TTS generation"""
-        self.logger.debug(f"🔊 TTS: {text[:50]}... (voice: {voice})")
+            if old_logs:
+                self.logger.info(f"Cleaned up {len(old_logs)} old log files (>7 days)")
 
-    # API logging
-    def log_api_call(self, api_name: str, endpoint: str, status: str):
-        """Log API calls"""
-        self.logger.info(f"🌐 API: {api_name} | {endpoint} | {status}")
+        except Exception as e:
+            self.logger.warning(f"Could not clean up old logs: {e}")
 
-    def log_api_error(self, api_name: str, error: str):
-        """Log API errors"""
-        self.logger.error(f"❌ API Error: {api_name} | {error}")
+    # =============================
+    #   DATA FLOW LOGGING
+    # =============================
 
-    # Performance logging
-    def log_performance(self, operation: str, duration_ms: float):
-        """Log performance metrics"""
-        self.perf_logger.info(f"⚡ {operation}: {duration_ms:.0f}ms")
+    def log_conversation_turn(self,
+                             user_input: str,
+                             parser_output: dict,
+                             work_output: dict,
+                             ai_response: str,
+                             final_output: str):
+        """
+        Log a complete conversation turn (Input → Parser → Work → AI → Output)
 
-    # Function execution
-    def log_function_start(self, function_name: str):
-        """Log function execution start"""
-        self.logger.debug(f"▶️  Executing: {function_name}")
+        Args:
+            user_input: What the user said
+            parser_output: Intent parser output (intent, language, params)
+            work_output: Result from API/function (weather data, calculation result, etc.)
+            ai_response: Raw AI response (before any post-processing)
+            final_output: Final output spoken to user
+        """
+        separator = "─" * 80
 
-    def log_function_end(self, function_name: str, success: bool):
-        """Log function execution end"""
-        status = "✅" if success else "❌"
-        self.logger.debug(f"{status} Completed: {function_name}")
+        self.logger.info(separator)
+        self.logger.info("📥 USER INPUT:")
+        self.logger.info(f"   \"{user_input}\"")
 
-    # Error handling
-    def log_error(self, error_type: str, message: str, details: Optional[str] = None):
-        """Log errors"""
-        self.logger.error(f"❌ {error_type}: {message}")
-        if details:
-            self.logger.error(f"   Details: {details}")
+        self.logger.info("")
+        self.logger.info("🔍 PARSER OUTPUT:")
+        self.logger.info(f"   Intent: {parser_output.get('intent', 'unknown')}")
+        self.logger.info(f"   Language: {parser_output.get('language', 'unknown')}")
+        self.logger.info(f"   Confidence: {parser_output.get('confidence', 0):.2f}")
+        if parser_output.get('parameters'):
+            params_str = json.dumps(parser_output['parameters'], indent=6)
+            self.logger.info(f"   Parameters: {params_str}")
 
-    def log_exception(self, exception: Exception, context: str = ""):
-        """Log exceptions with traceback"""
-        self.logger.exception(f"💥 Exception {context}: {str(exception)}")
+        self.logger.info("")
+        self.logger.info("⚙️  WORK OUTPUT (API/Function Result):")
+        if work_output.get('success'):
+            # Log relevant data only (not the entire dict)
+            if 'error' in work_output:
+                self.logger.info(f"   ❌ Error: {work_output['error']}")
+            else:
+                # Format work output nicely
+                work_str = self._format_work_output(parser_output.get('intent'), work_output)
+                self.logger.info(f"   {work_str}")
+        else:
+            self.logger.info(f"   ❌ Failed: {work_output.get('error', 'Unknown error')}")
 
-    # System events
+        self.logger.info("")
+        self.logger.info("🤖 AI RESPONSE:")
+        self.logger.info(f"   \"{ai_response}\"")
+
+        self.logger.info("")
+        self.logger.info("📤 FINAL OUTPUT (Spoken to User):")
+        self.logger.info(f"   \"{final_output}\"")
+
+        self.logger.info(separator)
+        self.logger.info("")  # Blank line for readability
+
+    def _format_work_output(self, intent: str, work_output: dict) -> str:
+        """Format work output based on intent type"""
+        if intent == 'weather':
+            return f"Temp: {work_output.get('temperature_c')}°C, {work_output.get('description')}, Location: {work_output.get('location')}"
+        elif intent == 'time':
+            return f"Time: {work_output.get('time')}"
+        elif intent == 'date':
+            return f"Date: {work_output.get('date_formatted')}"
+        elif intent == 'calculate':
+            return f"Result: {work_output.get('result')}"
+        elif intent == 'volume_set' or intent == 'volume_up' or intent == 'volume_down':
+            return f"Volume: {work_output}"
+        elif intent == 'system_status':
+            cpu = work_output.get('cpu', {}).get('usage_percent', 'N/A')
+            mem = work_output.get('memory', {}).get('usage_percent', 'N/A')
+            temp = work_output.get('temperature', {}).get('celsius', 'N/A')
+            return f"CPU: {cpu}%, Memory: {mem}%, Temp: {temp}°C"
+        elif intent == 'transport_car' or intent == 'transport_public':
+            return f"Duration: {work_output.get('duration_text', work_output.get('duration'))}, Destination: {work_output.get('destination')}"
+        elif intent == 'news':
+            count = len(work_output.get('articles', []))
+            return f"Articles: {count}"
+        elif intent == 'finance' or intent == 'finance_watchlist':
+            stocks = len(work_output.get('stocks', []))
+            crypto = len(work_output.get('crypto', []))
+            return f"Stocks: {stocks}, Crypto: {crypto}"
+        elif intent == 'recipe_search':
+            count = len(work_output.get('recipes', []))
+            return f"Recipes found: {count}"
+        else:
+            # Generic format
+            return json.dumps(work_output, indent=6)
+
+    # =============================
+    #   SIMPLE EVENT LOGGING
+    # =============================
+
     def log_startup(self, config: dict):
         """Log system startup"""
         self.logger.info("🚀 Alfred starting up...")
@@ -155,27 +207,17 @@ class AlfredLogger:
         self.logger.info(f"🛑 Alfred shutting down: {reason}")
         self.logger.info("=" * 80)
 
-    # Context and state
-    def log_context_update(self, context_key: str, value: str):
-        """Log context changes"""
-        self.logger.debug(f"📋 Context updated: {context_key} = {value}")
+    def log_error(self, error_type: str, message: str, details: Optional[str] = None):
+        """Log errors"""
+        self.logger.error(f"❌ {error_type}: {message}")
+        if details:
+            self.logger.error(f"   Details: {details}")
 
-    # Security
-    def log_pin_attempt(self, success: bool, attempts: int):
-        """Log PIN verification attempts"""
-        status = "✅ Success" if success else f"❌ Failed (attempt {attempts})"
-        self.logger.warning(f"🔐 PIN verification: {status}")
-
-    def log_sensitive_action(self, action: str, authorized: bool):
-        """Log sensitive actions"""
-        status = "✅ Authorized" if authorized else "❌ Denied"
-        self.logger.warning(f"⚠️  Sensitive action: {action} | {status}")
+    def log_exception(self, exception: Exception, context: str = ""):
+        """Log exceptions with traceback"""
+        self.logger.exception(f"💥 Exception {context}: {str(exception)}")
 
     # Generic logging methods
-    def debug(self, message: str):
-        """Debug level log"""
-        self.logger.debug(message)
-
     def info(self, message: str):
         """Info level log"""
         self.logger.info(message)
@@ -188,9 +230,13 @@ class AlfredLogger:
         """Error level log"""
         self.logger.error(message)
 
-    def critical(self, message: str):
-        """Critical level log"""
-        self.logger.critical(message)
+    def debug(self, message: str):
+        """Debug level log"""
+        self.logger.debug(message)
+
+    def log_context_update(self, context_key: str, value: str):
+        """Log context updates (for debugging context management)"""
+        self.logger.debug(f"🔄 Context update: {context_key} = {value}")
 
 
 # Singleton instance
@@ -206,37 +252,48 @@ def get_logger(log_dir: str = "logs", log_level: str = "INFO") -> AlfredLogger:
 
 if __name__ == '__main__':
     # Test the logging system
-    logger = get_logger(log_level="DEBUG")
+    logger = get_logger(log_level="INFO")
 
     print("\n" + "=" * 60)
     print("Testing Alfred Logging System")
     print("=" * 60)
 
-    # Test different log types
-    logger.log_wake_word(0.985)
-    logger.log_command("What's the weather?")
-    logger.log_intent("weather", "en", 0.9, {"location": "Santhia"})
-    logger.log_response("The weather in Santhia is 15°C, partly cloudy, sir.", "english")
+    # Test conversation turn logging
+    logger.log_conversation_turn(
+        user_input="What's the weather in Milan?",
+        parser_output={
+            'intent': 'weather',
+            'language': 'en',
+            'confidence': 0.95,
+            'parameters': {'location': 'Milan'}
+        },
+        work_output={
+            'success': True,
+            'temperature_c': 15,
+            'temperature_f': 59,
+            'description': 'partly cloudy',
+            'humidity': 65,
+            'wind_speed': 12,
+            'location': 'Milan'
+        },
+        ai_response="The weather in Milan is 15 degrees Celsius and partly cloudy, sir.",
+        final_output="The weather in Milan is 15 degrees Celsius and partly cloudy, sir."
+    )
 
-    logger.log_api_call("OpenWeatherMap", "/weather", "200 OK")
-    logger.log_performance("Weather query", 234.5)
-
-    logger.log_function_start("get_weather")
-    logger.log_function_end("get_weather", True)
-
+    # Test error logging
     logger.log_error("API_TIMEOUT", "Weather API took too long", "Timeout after 10s")
 
+    # Test exception logging
     try:
         raise ValueError("Test exception")
     except Exception as e:
         logger.log_exception(e, "during testing")
 
-    logger.log_pin_attempt(False, 1)
-    logger.log_sensitive_action("send_email", False)
-
     logger.log_shutdown("Testing complete")
 
     print("\n✅ Logs written to ./logs/")
-    print("   - alfred.log (main log)")
-    print("   - errors.log (errors only)")
-    print("   - performance.log (performance metrics)")
+    print("   - alfred.log (today's log)")
+    print("   - alfred.log.YYYY-MM-DD (rotated daily, keeps 7 days)")
+    print("\nView logs:")
+    print("   cat logs/alfred.log")
+    print("   tail -f logs/alfred.log  # Follow in real-time")

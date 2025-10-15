@@ -20,6 +20,12 @@ from functions.function import (
 )
 from config import RESPONSE_MODE, AI_MODEL, FINANCE_WATCHLIST
 
+# Phase 1.2: Infrastructure components
+from functions.logger import get_logger
+from functions.context_manager import get_context_manager
+from functions.error_handler import ErrorHandler
+from functions.response_templates import generate_template_response
+
 # =============================
 #     COMMAND LINE ARGUMENTS
 # =============================
@@ -71,20 +77,20 @@ parser.add_argument(
 parser.add_argument(
     '-t', '--threshold',
     type=float,
-    default=0.98,
-    help='Wake word detection threshold 0-1 (default: 0.98, lower = more sensitive)'
+    default=0.998,
+    help='Wake word detection threshold 0-1 (default: 0.998, lower = more sensitive)'
 )
 parser.add_argument(
     '-s', '--silence-threshold',
     type=float,
-    default=0.01,
-    help='Silence detection threshold for voice activity detection. This is the RMS energy level below which audio is considered silence. Range: 0.001-0.1. Lower values (e.g., 0.005) detect silence more aggressively, stopping recording sooner. Higher values (e.g., 0.05) require louder silence, useful in noisy environments. (default: 0.01)'
+    default=3,
+    help='Silence detection threshold for voice activity detection. This is the RMS energy level below which audio is considered silence. Range: 0.001-0.1. Lower values (e.g., 0.005) detect silence more aggressively, stopping recording sooner. Higher values (e.g., 0.05) require louder silence, useful in noisy environments. (default: 3)'
 )
 parser.add_argument(
     '-st', '--silence-duration',
     type=float,
-    default=2.0,
-    help='How many seconds of continuous silence before stopping recording. Increase this if your speech has long pauses. Range: 0.5-5.0 seconds. (default: 2.0)'
+    default=5.0,
+    help='How many seconds of continuous silence before stopping recording. Increase this if your speech has long pauses. Range: 0.5-5.0 seconds. (default: 5.0)'
 )
 
 parser.add_argument(
@@ -123,6 +129,25 @@ if not args.no_tts:
         tts_engine = None
 
 # =============================
+#  PHASE 1.2 INFRASTRUCTURE
+# =============================
+print("Initializing Alfred infrastructure...")
+
+# Initialize logger
+logger = get_logger(log_dir="logs", log_level="INFO")
+logger.info("Alfred infrastructure initialization started")
+
+# Initialize context manager
+context = get_context_manager(timeout=300, max_history=10, logger=logger)
+logger.info("Context manager initialized (5 minute timeout, 10 turn history)")
+
+# Initialize error handler
+error_handler = ErrorHandler(logger=logger)
+logger.info("Error handler initialized")
+
+print("✅ Infrastructure ready (logging, context, error handling)!")
+
+# =============================
 #        SPEECH OUTPUT
 # =============================
 def speak(text: str, language: str = "english"):
@@ -145,8 +170,11 @@ def speak(text: str, language: str = "english"):
                 os.unlink(wav_path)
         except Exception as e:
             print(f"⚠️  TTS error: {e}")
+            logger.log_error("TTS_ERROR", str(e))
     else:
         print("   [TTS disabled]")
+
+    return text  # Return for context tracking and logging
 
 
 # =============================
@@ -235,6 +263,19 @@ print(f"  TTS: {'Enabled (US English + Italian)' if tts_engine else 'Disabled'}"
 print(f"  Startup volume: {startup_volume}%")
 print(f"\nSay 'Hey {wake_word_name}' to wake me up.")
 
+# Log startup configuration
+config_dict = {
+    "wake_threshold": wake_threshold,
+    "whisper_mode": args.whisper,
+    "whisper_model": args.whisper_model if args.whisper == 'local' else f"docker@{args.docker_ip}",
+    "silence_threshold": args.silence_threshold,
+    "silence_duration": args.silence_duration,
+    "tts_enabled": tts_engine is not None,
+    "startup_volume": startup_volume,
+    "response_mode": RESPONSE_MODE,
+}
+logger.log_startup(config_dict)
+
 # Welcome message in Italian
 speak(f"Ciao! Sono {wake_word_name}, pronto ad aiutarti.", language="italian")
 
@@ -281,7 +322,14 @@ while True:
 
             # Parse intent
             if command:
-                intent_result = parse_intent(command)
+                # Use context manager to resolve pronouns and follow-ups
+                resolved_command, additional_params = context.handle_follow_up(command, "")
+
+                intent_result = parse_intent(resolved_command)
+
+                # Merge additional params from context
+                intent_result['parameters'].update(additional_params)
+
                 print(f"\n📋 Intent parsed:")
                 print(f"   Intent: {intent_result['intent']}")
                 print(f"   Language: {intent_result['language']}")
@@ -300,187 +348,288 @@ while True:
                 intent = intent_result['intent']
                 params = intent_result['parameters']
 
-                # Volume control intents
+                # Track data for logging - collect everything for log_conversation_turn()
+                user_input = command
+                parser_output = {
+                    'intent': intent_result['intent'],
+                    'language': intent_result['language'],
+                    'confidence': intent_result['confidence'],
+                    'parameters': intent_result['parameters']
+                }
+                work_output = {}  # Will be populated by API/function calls
+                ai_response = ""  # Raw AI response (if used)
+                final_output = ""  # What gets spoken to user
+
+                # Track response for context
+                response_text = ""
+                success = False
+
+                # Volume control intents (use advanced templates)
                 if intent == 'volume_set':
                     level = params.get('level', 50)
                     volume_control.set_volume(level)
-                    response = generate_response(intent, str(level), language=detected_lang, parameters=params)
-                    speak(response, language=speak_lang)
+                    work_output = {'level': level, 'success': True}
+                    ai_response = "Template response (with personality)"
+                    final_output = speak(generate_template_response(intent, str(level), detected_lang, {'level': level}), language=speak_lang)
+                    response_text = final_output
+                    success = True
 
                 elif intent == 'volume_up':
                     amount = params.get('amount', 10)
                     new_vol = volume_control.increase_volume(amount)
-                    response = generate_response(intent, str(new_vol), language=detected_lang, parameters=params)
-                    speak(response, language=speak_lang)
+                    work_output = {'new_volume': new_vol, 'amount': amount, 'success': True}
+                    ai_response = "Template response (with personality)"
+                    final_output = speak(generate_template_response(intent, str(new_vol), detected_lang, {'result': new_vol}), language=speak_lang)
+                    response_text = final_output
+                    success = True
 
                 elif intent == 'volume_down':
                     amount = params.get('amount', 10)
                     new_vol = volume_control.decrease_volume(amount)
-                    response = generate_response(intent, str(new_vol), language=detected_lang, parameters=params)
-                    speak(response, language=speak_lang)
+                    work_output = {'new_volume': new_vol, 'amount': amount, 'success': True}
+                    ai_response = "Template response (with personality)"
+                    final_output = speak(generate_template_response(intent, str(new_vol), detected_lang, {'result': new_vol}), language=speak_lang)
+                    response_text = final_output
+                    success = True
 
-                # Time & Date intents
+                # Time & Date intents (use advanced templates)
                 elif intent == 'time':
                     time_data = time_date.get_time()
+                    work_output = time_data
                     if time_data["success"]:
-                        response = generate_response(intent, time_data["time"], language=detected_lang, parameters=time_data)
-                        speak(response, language=speak_lang)
+                        ai_response = "Template response (with personality)"
+                        final_output = speak(generate_template_response(intent, time_data["time"], detected_lang, {'time': time_data["time"]}), language=speak_lang)
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot tell the time at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot tell the time at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 elif intent == 'date':
                     date_data = time_date.get_date()
+                    work_output = date_data
                     if date_data["success"]:
                         result = f"{date_data['weekday']}, {date_data['date_formatted']}"
-                        response = generate_response(intent, result, language=detected_lang, parameters=date_data)
-                        speak(response, language=speak_lang)
+                        ai_response = "Template response (with personality)"
+                        final_output = speak(generate_template_response(intent, result, detected_lang, date_data), language=speak_lang)
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot tell the date at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot tell the date at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
-                # Weather intents
+                # Weather intents (use AI with minimal data)
                 elif intent == 'weather':
                     location = params.get('location', None)  # None will use default from config
                     weather_data = weather.get_weather(detected_lang, location)  # Pass language code (en/it)
+                    work_output = weather_data
                     if weather_data["success"]:
-                        # Let template system handle formatting - just provide basic result
+                        # Pass only essential information to AI
+                        essential_params = {
+                            'temperature_c': weather_data['temperature_c'],
+                            'description': weather_data['description'],
+                            'location': weather_data['location']
+                        }
                         result = f"{weather_data['temperature_c']}C, {weather_data['description']}"
-                        response = generate_response(intent, result, language=detected_lang, parameters=weather_data)
-                        speak(response, language=speak_lang)
+                        ai_response = generate_response(intent, result, language=detected_lang, parameters=essential_params)
+                        final_output = speak(ai_response, language=speak_lang)
+                        response_text = final_output
+                        success = True
                     else:
                         loc_name = location if location else "your location"
-                        speak(f"I'm afraid I cannot fetch the weather for {loc_name}, sir.", language=speak_lang)
+                        final_output = speak(f"I'm afraid I cannot fetch the weather for {loc_name}, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
-                # System status intents
+                # System status intents (use advanced templates with contextual comments)
                 elif intent == 'system_status':
                     status_data = system.get_system_status()
+                    work_output = status_data
                     if status_data["success"]:
                         cpu = status_data['cpu']
                         memory = status_data['memory']
                         temp = status_data['temperature']
-                        # Let template system handle formatting - just provide basic result
-                        result = f"CPU {cpu['usage_percent']}%, Memory {memory['usage_percent']}%"
-                        if temp['success']:
-                            result += f", Temp {temp['celsius']}C"
-                        response = generate_response(intent, result, language=detected_lang, parameters=status_data)
-                        speak(response, language=speak_lang)
+                        result = "OK"
+                        ai_response = "Template response (with personality + contextual comments)"
+                        final_output = speak(generate_template_response(intent, result, detected_lang, status_data), language=speak_lang)
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot check the system status, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot check the system status, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
-                # General intents
+                # General intents (use advanced templates)
                 elif intent == 'joke':
                     joke_data = general.tell_joke(language=detected_lang)
+                    work_output = joke_data
                     if joke_data["success"]:
-                        speak(joke_data['joke'], language=speak_lang)
+                        # Joke: template says the joke directly
+                        ai_response = "Template response (with personality)"
+                        final_output = speak(joke_data['joke'], language=speak_lang)
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid my joke collection is unavailable at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid my joke collection is unavailable at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 elif intent == 'calculate':
                     expression = params.get('expression', '')
                     if expression:
                         calc_data = general.calculate(expression)
+                        work_output = calc_data
                         if calc_data["success"]:
-                            response = generate_response(intent, str(calc_data['result']), language=detected_lang, parameters=calc_data)
-                            speak(response, language=speak_lang)
+                            ai_response = "Template response (with personality)"
+                            final_output = speak(generate_template_response(intent, str(calc_data['result']), detected_lang, {'expression': expression, 'result': calc_data['result']}), language=speak_lang)
+                            response_text = final_output
+                            success = True
                         else:
-                            speak(f"I'm afraid I cannot calculate that, sir. {calc_data['error']}", language=speak_lang)
+                            final_output = speak(f"I'm afraid I cannot calculate that, sir. {calc_data['error']}", language=speak_lang)
+                            response_text = final_output
+                            success = False
                     else:
-                        speak("I need an expression to calculate, sir.", language=speak_lang)
+                        work_output = {'error': 'No expression provided', 'success': False}
+                        final_output = speak("I need an expression to calculate, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 # News intents
                 elif intent == 'news':
                     # Get multi-country headlines (Italy + US by default)
                     news_data = news.get_multi_country_headlines(count_per_country=3)
+                    work_output = news_data
                     if news_data["success"] and news_data["articles"]:
                         # Speak summary
                         total = len(news_data["articles"])
+                        outputs = []
                         if speak_lang == 'italian':
-                            speak(f"Ecco le ultime {total} notizie, signore:", language="italian")
+                            outputs.append(speak(f"Ecco le ultime {total} notizie, signore:", language="italian"))
                         else:
-                            speak(f"Here are the latest {total} headlines, sir:", language="english")
+                            outputs.append(speak(f"Here are the latest {total} headlines, sir:", language="english"))
 
                         # Read first 5 headlines
                         for i, article in enumerate(news_data["articles"][:5], 1):
                             country = article.get('country', '')
                             title = article['title']
                             if country:
-                                speak(f"{country}: {title}", language=speak_lang)
+                                outputs.append(speak(f"{country}: {title}", language=speak_lang))
                             else:
-                                speak(f"{i}. {title}", language=speak_lang)
+                                outputs.append(speak(f"{i}. {title}", language=speak_lang))
+
+                        final_output = " | ".join(outputs)
+                        ai_response = "News headlines"  # No AI generation for news
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot fetch the news at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot fetch the news at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 # Finance intents
                 elif intent == 'finance' or intent == 'finance_watchlist':
                     # Get full watchlist summary
                     watchlist_data = finance.get_watchlist_summary(FINANCE_WATCHLIST)
+                    work_output = watchlist_data
                     if watchlist_data["success"]:
+                        outputs = []
                         # Speak stocks
                         if watchlist_data["stocks"]:
                             if speak_lang == 'italian':
-                                speak("Azioni:", language="italian")
+                                outputs.append(speak("Azioni:", language="italian"))
                             else:
-                                speak("Stocks:", language="english")
+                                outputs.append(speak("Stocks:", language="english"))
 
                             for stock in watchlist_data["stocks"]:
                                 change_dir = "up" if stock["change"] > 0 else "down"
-                                speak(f"{stock['name']}: ${stock['price']}, {change_dir} {abs(stock['change_percent'])}%", language=speak_lang)
+                                outputs.append(speak(f"{stock['name']}: ${stock['price']}, {change_dir} {abs(stock['change_percent'])}%", language=speak_lang))
 
                         # Speak crypto
                         if watchlist_data["crypto"]:
                             if speak_lang == 'italian':
-                                speak("Criptovalute:", language="italian")
+                                outputs.append(speak("Criptovalute:", language="italian"))
                             else:
-                                speak("Crypto:", language="english")
+                                outputs.append(speak("Crypto:", language="english"))
 
                             for crypto in watchlist_data["crypto"]:
                                 change_dir = "up" if crypto["change_24h"] > 0 else "down"
-                                speak(f"{crypto['name']}: ${crypto['price_usd']}, {change_dir} {abs(crypto['change_24h'])}%", language=speak_lang)
+                                outputs.append(speak(f"{crypto['name']}: ${crypto['price_usd']}, {change_dir} {abs(crypto['change_24h'])}%", language=speak_lang))
 
                         # Speak forex
                         if watchlist_data["forex"]:
                             if speak_lang == 'italian':
-                                speak("Cambi:", language="italian")
+                                outputs.append(speak("Cambi:", language="italian"))
                             else:
-                                speak("Forex:", language="english")
+                                outputs.append(speak("Forex:", language="english"))
 
                             for pair in watchlist_data["forex"]:
-                                speak(f"{pair['from']}/{pair['to']}: {pair['rate']}", language=speak_lang)
+                                outputs.append(speak(f"{pair['from']}/{pair['to']}: {pair['rate']}", language=speak_lang))
+
+                        final_output = " | ".join(outputs)
+                        ai_response = "Financial watchlist"  # No AI generation for finance
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot fetch financial data at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot fetch financial data at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 # Recipe intents
                 elif intent == 'recipe_search':
                     query = params.get('query', '')
                     if query:
                         recipe_data = food.search_recipes(query, count=3)
+                        work_output = recipe_data
                         if recipe_data["success"] and recipe_data["recipes"]:
                             total = len(recipe_data["recipes"])
+                            outputs = []
                             if speak_lang == 'italian':
-                                speak(f"Ho trovato {total} ricette per {query}, signore:", language="italian")
+                                outputs.append(speak(f"Ho trovato {total} ricette per {query}, signore:", language="italian"))
                             else:
-                                speak(f"I found {total} recipes for {query}, sir:", language="english")
+                                outputs.append(speak(f"I found {total} recipes for {query}, sir:", language="english"))
 
                             for recipe in recipe_data["recipes"]:
-                                speak(f"{recipe['name']} from {recipe['area']}", language=speak_lang)
+                                outputs.append(speak(f"{recipe['name']} from {recipe['area']}", language=speak_lang))
+
+                            final_output = " | ".join(outputs)
+                            ai_response = f"Recipe search: {query}"
+                            response_text = final_output
+                            success = True
                         else:
-                            speak(f"I'm afraid I couldn't find recipes for {query}, sir.", language=speak_lang)
+                            final_output = speak(f"I'm afraid I couldn't find recipes for {query}, sir.", language=speak_lang)
+                            response_text = final_output
+                            success = False
                     else:
-                        speak("I need a recipe name or ingredient, sir.", language=speak_lang)
+                        work_output = {'error': 'No query provided', 'success': False}
+                        final_output = speak("I need a recipe name or ingredient, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 elif intent == 'recipe_random':
                     recipe_data = food.get_random_recipe()
+                    work_output = recipe_data
                     if recipe_data["success"]:
                         recipe = recipe_data['recipe']
+                        outputs = []
                         if speak_lang == 'italian':
-                            speak(f"Suggerisco {recipe['name']}, un piatto {recipe['area']}, signore.", language="italian")
+                            outputs.append(speak(f"Suggerisco {recipe['name']}, un piatto {recipe['area']}, signore.", language="italian"))
                         else:
-                            speak(f"I suggest {recipe['name']}, a {recipe['area']} dish, sir.", language="english")
+                            outputs.append(speak(f"I suggest {recipe['name']}, a {recipe['area']} dish, sir.", language="english"))
 
                         # Optionally speak category
                         if recipe.get('category'):
-                            speak(f"Category: {recipe['category']}", language=speak_lang)
+                            outputs.append(speak(f"Category: {recipe['category']}", language=speak_lang))
+
+                        final_output = " | ".join(outputs)
+                        ai_response = "Random recipe suggestion"
+                        response_text = final_output
+                        success = True
                     else:
-                        speak("I'm afraid I cannot get a recipe suggestion at the moment, sir.", language=speak_lang)
+                        final_output = speak("I'm afraid I cannot get a recipe suggestion at the moment, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 # Transport intents
                 elif intent == 'transport_car':
@@ -489,33 +638,45 @@ while True:
 
                     if destination:
                         traffic_data = transport.get_traffic_status(None, destination, arrival_time)
+                        work_output = traffic_data
                         if traffic_data["success"]:
                             travel_duration = traffic_data['duration_text']
                             traffic = traffic_data['delay_minutes']
                             departure_time = traffic_data.get('departure_time')
+                            outputs = []
 
                             # If arrival time was specified, tell when to leave
                             if arrival_time and departure_time:
                                 if speak_lang == 'italian':
-                                    speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian")
+                                    outputs.append(speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian"))
                                 else:
-                                    speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english")
+                                    outputs.append(speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english"))
                             else:
                                 if speak_lang == 'italian':
-                                    speak(f"Per arrivare a {destination} ci vogliono {travel_duration}, signore.", language="italian")
+                                    outputs.append(speak(f"Per arrivare a {destination} ci vogliono {travel_duration}, signore.", language="italian"))
                                 else:
-                                    speak(f"It will take {travel_duration} to get to {destination}, sir.", language="english")
+                                    outputs.append(speak(f"It will take {travel_duration} to get to {destination}, sir.", language="english"))
 
                             # Mention traffic if significant
                             if traffic > 5:
                                 if speak_lang == 'italian':
-                                    speak(f"C'è traffico, {traffic} minuti di ritardo.", language="italian")
+                                    outputs.append(speak(f"C'è traffico, {traffic} minuti di ritardo.", language="italian"))
                                 else:
-                                    speak(f"There's traffic, {traffic} minutes delay.", language="english")
+                                    outputs.append(speak(f"There's traffic, {traffic} minutes delay.", language="english"))
+
+                            final_output = " | ".join(outputs)
+                            ai_response = "Traffic directions"
+                            response_text = final_output
+                            success = True
                         else:
-                            speak(f"I'm afraid I cannot get directions to {destination}, sir.", language=speak_lang)
+                            final_output = speak(f"I'm afraid I cannot get directions to {destination}, sir.", language=speak_lang)
+                            response_text = final_output
+                            success = False
                     else:
-                        speak("I need a destination, sir.", language=speak_lang)
+                        work_output = {'error': 'No destination provided', 'success': False}
+                        final_output = speak("I need a destination, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 elif intent == 'transport_public':
                     destination = params.get('destination', '')
@@ -523,50 +684,94 @@ while True:
 
                     if destination:
                         transit_data = transport.get_public_transit(None, destination, arrival_time)
+                        work_output = transit_data
                         if transit_data["success"]:
                             travel_duration = transit_data['duration']
                             transit_steps = transit_data['transit_steps']
                             departure_time = transit_data.get('departure_time')
+                            outputs = []
 
                             # If arrival time was specified, tell when to leave
                             if arrival_time and departure_time:
                                 if speak_lang == 'italian':
-                                    speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian")
+                                    outputs.append(speak(f"Per arrivare a {destination} alle {arrival_time}, devi partire alle {departure_time}, signore.", language="italian"))
                                 else:
-                                    speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english")
+                                    outputs.append(speak(f"To arrive at {destination} by {arrival_time}, you need to leave at {departure_time}, sir.", language="english"))
                             else:
                                 if speak_lang == 'italian':
-                                    speak(f"Per arrivare a {destination} con i mezzi pubblici ci vogliono {travel_duration}, signore.", language="italian")
+                                    outputs.append(speak(f"Per arrivare a {destination} con i mezzi pubblici ci vogliono {travel_duration}, signore.", language="italian"))
                                 else:
-                                    speak(f"To get to {destination} by public transport takes {travel_duration}, sir.", language="english")
+                                    outputs.append(speak(f"To get to {destination} by public transport takes {travel_duration}, sir.", language="english"))
 
                             # Count transfers
                             if len(transit_steps) > 1:
                                 transfers = len(transit_steps) - 1
                                 if speak_lang == 'italian':
-                                    speak(f"Devi fare {transfers} cambi.", language="italian")
+                                    outputs.append(speak(f"Devi fare {transfers} cambi.", language="italian"))
                                 else:
-                                    speak(f"You need to make {transfers} transfers.", language="english")
+                                    outputs.append(speak(f"You need to make {transfers} transfers.", language="english"))
 
                             # Speak first transit line
                             if transit_steps:
                                 first_step = transit_steps[0]
                                 line = first_step.get('line', 'Unknown')
                                 if speak_lang == 'italian':
-                                    speak(f"Prendi la linea {line}.", language="italian")
+                                    outputs.append(speak(f"Prendi la linea {line}.", language="italian"))
                                 else:
-                                    speak(f"Take line {line}.", language="english")
+                                    outputs.append(speak(f"Take line {line}.", language="english"))
+
+                            final_output = " | ".join(outputs)
+                            ai_response = "Public transport directions"
+                            response_text = final_output
+                            success = True
                         else:
-                            speak(f"I'm afraid I cannot get public transport directions to {destination}, sir.", language=speak_lang)
+                            final_output = speak(f"I'm afraid I cannot get public transport directions to {destination}, sir.", language=speak_lang)
+                            response_text = final_output
+                            success = False
                     else:
-                        speak("I need a destination, sir.", language=speak_lang)
+                        work_output = {'error': 'No destination provided', 'success': False}
+                        final_output = speak("I need a destination, sir.", language=speak_lang)
+                        response_text = final_output
+                        success = False
 
                 # Generic acknowledgment for other intents
                 elif intent != 'general_chat':
+                    work_output = {'intent': intent, 'success': True}
                     if speak_lang == 'italian':
-                        speak(f"Capito signore, richiesta {intent} ricevuta.", language="italian")
+                        final_output = speak(f"Capito signore, richiesta {intent} ricevuta.", language="italian")
                     else:
-                        speak(f"Understood sir, {intent} request received.", language="english")
+                        final_output = speak(f"Understood sir, {intent} request received.", language="english")
+                    ai_response = "Generic acknowledgment"
+                    response_text = final_output
+                    success = True
+
+                # Log the complete conversation turn
+                if not response_text:
+                    # If no response was explicitly tracked, use fallback
+                    response_text = f"Intent {intent} executed"
+                    final_output = response_text
+                    success = True
+
+                # Log complete data flow: Input → Parser → Work → AI → Output
+                logger.log_conversation_turn(
+                    user_input=user_input,
+                    parser_output=parser_output,
+                    work_output=work_output,
+                    ai_response=ai_response,
+                    final_output=final_output
+                )
+
+                # Add conversation turn to context
+                context.add_turn(
+                    command=command,
+                    intent=intent,
+                    language=detected_lang,
+                    parameters=params,
+                    response=response_text,
+                    success=success
+                )
+
+                logger.debug(f"Context updated: {len(context.history)} turns in history")
 
             if os.path.exists(audio_file):
                 os.remove(audio_file)
@@ -575,5 +780,11 @@ while True:
 
     except KeyboardInterrupt:
         print("\n🛑 Exiting gracefully.")
+        logger.log_shutdown("User interrupt (Ctrl+C)")
         speak("Goodbye sir, until next time.", language="english")
         break
+    except Exception as e:
+        logger.log_exception(e, "in main loop")
+        print(f"\n❌ Unexpected error: {e}")
+        print("Continuing...")
+        continue
