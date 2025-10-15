@@ -8,13 +8,64 @@ import requests
 import sys
 from pathlib import Path
 from typing import Optional
+from datetime import datetime, timedelta
+import time as time_module
 
 # Import from config.py
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config import GOOGLE_MAPS_API_KEY
+    from config import GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION
 except ImportError:
     GOOGLE_MAPS_API_KEY = None
+    DEFAULT_LOCATION = "Santhia, Italy"
+
+def parse_time_to_timestamp(time_str: str) -> int:
+    """
+    Parse time string to Unix timestamp for arrival_time
+
+    Args:
+        time_str: Time string like "8am", "14:30", "3:45 pm"
+
+    Returns:
+        Unix timestamp for today at that time
+    """
+    try:
+        time_str = time_str.strip().lower()
+
+        # Handle formats: "8am", "8 am", "8:30am", "8:30 am", "14:30"
+        is_pm = 'pm' in time_str
+        is_am = 'am' in time_str
+        time_str = time_str.replace('am', '').replace('pm', '').strip()
+
+        # Parse hour and minute
+        if ':' in time_str:
+            parts = time_str.split(':')
+            hour = int(parts[0])
+            minute = int(parts[1])
+        else:
+            hour = int(time_str)
+            minute = 0
+
+        # Convert to 24-hour format
+        if is_pm and hour != 12:
+            hour += 12
+        elif is_am and hour == 12:
+            hour = 0
+
+        # Create datetime for today at specified time
+        now = datetime.now()
+        target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+        # If time is in the past, assume tomorrow
+        if target_time < now:
+            target_time += timedelta(days=1)
+
+        # Convert to Unix timestamp
+        return int(target_time.timestamp())
+
+    except Exception as e:
+        # If parsing fails, return timestamp for 1 hour from now
+        return int((datetime.now() + timedelta(hours=1)).timestamp())
 
 def get_travel_time(origin: str, destination: str, mode: str = "driving") -> dict:
     """
@@ -81,16 +132,17 @@ def get_travel_time(origin: str, destination: str, mode: str = "driving") -> dic
         }
 
 
-def get_traffic_status(origin: str, destination: str) -> dict:
+def get_traffic_status(origin: str, destination: str, arrival_time: str = None) -> dict:
     """
     Get current traffic status between two locations
 
     Args:
-        origin: Starting location
+        origin: Starting location (uses DEFAULT_LOCATION if None)
         destination: Destination location
+        arrival_time: Optional arrival time string (e.g., "8am", "14:30")
 
     Returns:
-        dict with traffic information
+        dict with traffic information including departure time if arrival_time specified
     """
     if not GOOGLE_MAPS_API_KEY:
         return {
@@ -98,17 +150,25 @@ def get_traffic_status(origin: str, destination: str) -> dict:
             "error": "Google Maps API key not configured"
         }
 
+    # Use default location if origin is None
+    if origin is None:
+        origin = DEFAULT_LOCATION
+
     try:
+        # NOTE: Google Maps API does NOT support arrival_time for driving mode
+        # We always use departure_time="now" and calculate manually
+        api_params = {
+            "origin": origin,
+            "destination": destination,
+            "mode": "driving",
+            "departure_time": "now",
+            "traffic_model": "best_guess",
+            "key": GOOGLE_MAPS_API_KEY
+        }
+
         response = requests.get(
             "https://maps.googleapis.com/maps/api/directions/json",
-            params={
-                "origin": origin,
-                "destination": destination,
-                "mode": "driving",
-                "departure_time": "now",
-                "traffic_model": "best_guess",
-                "key": GOOGLE_MAPS_API_KEY
-            },
+            params=api_params,
             timeout=10
         )
 
@@ -128,15 +188,31 @@ def get_traffic_status(origin: str, destination: str) -> dict:
 
                 traffic_status = "light" if delay_minutes < 5 else "moderate" if delay_minutes < 15 else "heavy"
 
+                # Calculate departure time if arrival_time was specified
+                departure_time_text = None
+                if arrival_time:
+                    # Calculate when to leave to arrive by the specified time
+                    # We get current traffic duration, subtract from desired arrival time
+                    arrival_timestamp = parse_time_to_timestamp(arrival_time)
+                    duration_seconds = duration_in_traffic["value"]
+                    departure_timestamp = arrival_timestamp - duration_seconds
+                    departure_dt = datetime.fromtimestamp(departure_timestamp)
+                    # Format time nicely (e.g., "11:45 AM" or "9:30 AM")
+                    departure_time_text = departure_dt.strftime("%I:%M %p").lstrip('0').replace(' 0', ' ')
+
                 return {
                     "success": True,
                     "origin": leg["start_address"],
                     "destination": leg["end_address"],
+                    "distance_text": leg["distance"]["text"],
                     "distance": leg["distance"]["text"],
                     "normal_duration": normal_duration["text"],
                     "current_duration": duration_in_traffic["text"],
+                    "duration_text": duration_in_traffic["text"],  # Alias for compatibility
                     "delay_minutes": max(0, delay_minutes),
-                    "traffic_status": traffic_status
+                    "traffic_status": traffic_status,
+                    "departure_time": departure_time_text,  # When to leave (if arrival_time specified)
+                    "arrival_time_requested": arrival_time  # What user requested
                 }
             else:
                 return {
@@ -156,16 +232,17 @@ def get_traffic_status(origin: str, destination: str) -> dict:
         }
 
 
-def get_public_transit(origin: str, destination: str) -> dict:
+def get_public_transit(origin: str, destination: str, arrival_time: str = None) -> dict:
     """
     Get public transit directions
 
     Args:
-        origin: Starting location
+        origin: Starting location (uses DEFAULT_LOCATION if None)
         destination: Destination location
+        arrival_time: Optional arrival time string (e.g., "8am", "14:30")
 
     Returns:
-        dict with transit information
+        dict with transit information including departure time
     """
     if not GOOGLE_MAPS_API_KEY:
         return {
@@ -173,16 +250,29 @@ def get_public_transit(origin: str, destination: str) -> dict:
             "error": "Google Maps API key not configured"
         }
 
+    # Use default location if origin is None
+    if origin is None:
+        origin = DEFAULT_LOCATION
+
     try:
+        # Build API parameters
+        api_params = {
+            "origin": origin,
+            "destination": destination,
+            "mode": "transit",
+            "key": GOOGLE_MAPS_API_KEY
+        }
+
+        # Use arrival_time if provided, otherwise departure_time=now
+        if arrival_time:
+            timestamp = parse_time_to_timestamp(arrival_time)
+            api_params["arrival_time"] = timestamp
+        else:
+            api_params["departure_time"] = "now"
+
         response = requests.get(
             "https://maps.googleapis.com/maps/api/directions/json",
-            params={
-                "origin": origin,
-                "destination": destination,
-                "mode": "transit",
-                "departure_time": "now",
-                "key": GOOGLE_MAPS_API_KEY
-            },
+            params=api_params,
             timeout=10
         )
 
@@ -193,11 +283,18 @@ def get_public_transit(origin: str, destination: str) -> dict:
                 route = data["routes"][0]
                 leg = route["legs"][0]
 
-                # Extract transit steps
+                # Extract transit steps and get first departure time
                 transit_steps = []
+                first_departure_time = None
+
                 for step in leg["steps"]:
                     if step["travel_mode"] == "TRANSIT":
                         transit = step["transit_details"]
+
+                        # Capture first departure time
+                        if first_departure_time is None:
+                            first_departure_time = transit["departure_time"]["text"]
+
                         transit_steps.append({
                             "line": transit["line"]["short_name"],
                             "vehicle": transit["line"]["vehicle"]["type"],
@@ -213,7 +310,11 @@ def get_public_transit(origin: str, destination: str) -> dict:
                     "origin": leg["start_address"],
                     "destination": leg["end_address"],
                     "distance": leg["distance"]["text"],
+                    "distance_text": leg["distance"]["text"],  # Alias for compatibility
                     "duration": leg["duration"]["text"],
+                    "duration_text": leg["duration"]["text"],  # Alias for compatibility
+                    "departure_time": first_departure_time,  # When to leave
+                    "arrival_time_requested": arrival_time,  # What user requested
                     "transit_steps": transit_steps
                 }
             else:
