@@ -213,6 +213,67 @@ def convert_currency(amount: float, from_currency: str = "USD", to_currency: str
         }
 
 
+def get_watchlist_summary(watchlist: dict) -> dict:
+    """
+    Get summary of all items in watchlist (stocks, crypto, forex)
+
+    Args:
+        watchlist: Dictionary with 'stocks', 'crypto', and 'forex' lists from config
+
+    Returns:
+        dict with all watchlist data
+    """
+    results = {
+        "success": True,
+        "stocks": [],
+        "crypto": [],
+        "forex": []
+    }
+
+    # Fetch stocks
+    for stock in watchlist.get("stocks", []):
+        stock_data = get_stock_price(stock["symbol"])
+        if stock_data["success"]:
+            results["stocks"].append({
+                "name": stock["name"],
+                "symbol": stock["symbol"],
+                "price": stock_data["price"],
+                "change": stock_data["change"],
+                "change_percent": stock_data["change_percent"]
+            })
+
+    # Fetch crypto (batch request)
+    crypto_list = watchlist.get("crypto", [])
+    if crypto_list:
+        coin_ids = [c["id"] for c in crypto_list]
+        crypto_data = get_multiple_crypto_prices(coin_ids)
+
+        if crypto_data["success"]:
+            for crypto in crypto_list:
+                coin_id = crypto["id"]
+                if coin_id in crypto_data["prices"]:
+                    price_data = crypto_data["prices"][coin_id]
+                    results["crypto"].append({
+                        "name": crypto["name"],
+                        "symbol": crypto["symbol"],
+                        "price_usd": price_data["price_usd"],
+                        "change_24h": price_data["change_24h"]
+                    })
+
+    # Fetch forex rates
+    for pair in watchlist.get("forex", []):
+        conversion = convert_currency(1, pair["from"], pair["to"])
+        if conversion["success"]:
+            results["forex"].append({
+                "name": pair["name"],
+                "from": pair["from"],
+                "to": pair["to"],
+                "rate": conversion["exchange_rate"]
+            })
+
+    return results
+
+
 if __name__ == '__main__':
     # Test functions
     print("Finance Functions Test\n" + "="*50)

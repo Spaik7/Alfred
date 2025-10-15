@@ -68,7 +68,16 @@ class IntentType(Enum):
     TRANSLATE = "translate"
     CALCULATE = "calculate"
     GENERAL_CHAT = "general_chat"
-    
+
+    # Information & Services
+    NEWS = "news"
+    FINANCE = "finance"
+    FINANCE_WATCHLIST = "finance_watchlist"
+    RECIPE_SEARCH = "recipe_search"
+    RECIPE_RANDOM = "recipe_random"
+    TRANSPORT_CAR = "transport_car"
+    TRANSPORT_PUBLIC = "transport_public"
+
     # Unknown
     UNKNOWN = "unknown"
 
@@ -377,10 +386,14 @@ class IntentParser:
                 # Italian word-based questions
                 (r"calcola (.+)", Language.ITALIAN, IntentType.CALCULATE),
                 (r"quanto (?:fa|è) (.+)", Language.ITALIAN, IntentType.CALCULATE),
-                # Italian percentage patterns
-                (r"(?:il|la) (\d+(?:\.\d+)?)%\s*(?:di|del) (\d+(?:\.\d+)?)", Language.ITALIAN, IntentType.CALCULATE),
-                # Standalone expressions with Italian word operators (must come last)
-                (r"^(\d+(?:\.\d+)?)\s*(?:più|meno|per|diviso)\s*(\d+(?:\.\d+)?)", Language.ITALIAN, IntentType.CALCULATE),
+                # Italian percentage patterns - must match before standalone to avoid "50%" being stripped
+                (r"(?:il|la) (\d+(?:\.\d+)?)%\s*(?:di|del) (.+)", Language.ITALIAN, IntentType.CALCULATE),
+                # Standalone expressions with Italian word operators - CAPTURE EVERYTHING
+                (r"^(\d+(?:\.\d+)?\s*(?:più|meno|per|diviso)\s*\d+(?:\.\d+)?)", Language.ITALIAN, IntentType.CALCULATE),
+                # English word numbers with all operators including "over" for division
+                (r"^([a-z]+\s+(?:plus|minus|times|over|divided by)\s+[a-z]+)", Language.ENGLISH, IntentType.CALCULATE),
+                # English numbers with "divided by" (multi-word operator)
+                (r"^(\d+(?:\.\d+)?\s+divided\s+by\s+\d+(?:\.\d+)?)", Language.ENGLISH, IntentType.CALCULATE),
                 # Standalone math expressions with symbols
                 (r"^(\d+[\d\s\+\-\*\/x×÷\%\.]+\d+)", Language.ENGLISH, IntentType.CALCULATE),
             ],
@@ -393,6 +406,91 @@ class IntentParser:
                 (r"dimmi una battuta", Language.ITALIAN, IntentType.JOKE),
                 (r"raccontami (?:una barzelletta|uno scherzo)", Language.ITALIAN, IntentType.JOKE),
                 (r"fammi ridere", Language.ITALIAN, IntentType.JOKE),
+            ],
+
+            # News
+            'news': [
+                # English
+                (r"what'?s? (?:the )?(?:latest )?news", Language.ENGLISH, IntentType.NEWS),
+                (r"(?:give me |tell me )?(?:the )?(?:news|headlines)", Language.ENGLISH, IntentType.NEWS),
+                (r"any news", Language.ENGLISH, IntentType.NEWS),
+                # Italian
+                (r"(?:quali sono |dammi )?(?:le )?(?:ultime )?notizie", Language.ITALIAN, IntentType.NEWS),
+                (r"che notizie ci sono", Language.ITALIAN, IntentType.NEWS),
+                (r"novità", Language.ITALIAN, IntentType.NEWS),
+            ],
+
+            # Finance
+            'finance': [
+                # English - Watchlist
+                (r"(?:my )?(?:finance |financial )?watchlist", Language.ENGLISH, IntentType.FINANCE_WATCHLIST),
+                (r"(?:check |show )?(?:my )?(?:stocks|investments|portfolio)", Language.ENGLISH, IntentType.FINANCE_WATCHLIST),
+                (r"how(?:'s| are) (?:my )?(?:stocks|investments)", Language.ENGLISH, IntentType.FINANCE_WATCHLIST),
+                (r"market (?:update|summary)", Language.ENGLISH, IntentType.FINANCE_WATCHLIST),
+                # Italian - Watchlist
+                (r"(?:i miei )?investimenti", Language.ITALIAN, IntentType.FINANCE_WATCHLIST),
+                (r"(?:le mie )?azioni", Language.ITALIAN, IntentType.FINANCE_WATCHLIST),
+                (r"come vanno (?:le azioni|gli investimenti)", Language.ITALIAN, IntentType.FINANCE_WATCHLIST),
+                (r"mercati", Language.ITALIAN, IntentType.FINANCE_WATCHLIST),
+            ],
+
+            # Recipes/Food
+            'recipe_search': [
+                # English
+                (r"(?:find |search |show me )?(?:a )?recipe(?:s)? (?:for |with )?(.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                (r"how (?:do i |to )?(?:make|cook) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                (r"(?:i want to |i'll )(?:make|cook) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                # Italian
+                (r"(?:cerca |trova |mostrami )?(?:una )?ricetta (?:per |di |con )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+                (r"come (?:si )?(?:fa|cucina|prepara) (.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+                (r"voglio (?:fare|cucinare|preparare) (.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+            ],
+            'recipe_random': [
+                # English
+                (r"(?:give me |suggest |show me )?(?:a )?random recipe", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                (r"(?:what|something) (?:should i |can i |to )(?:cook|make|eat)", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                (r"recipe idea", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                # Italian
+                (r"ricetta (?:a )?caso", Language.ITALIAN, IntentType.RECIPE_RANDOM),
+                (r"(?:cosa |che cosa )?(?:posso |dovrei )?(?:cucinare|preparare|mangiare)", Language.ITALIAN, IntentType.RECIPE_RANDOM),
+                (r"suggerimento ricetta", Language.ITALIAN, IntentType.RECIPE_RANDOM),
+            ],
+
+            # Transport
+            'transport_car': [
+                # English - with arrival time
+                (r"(?:get to|arrive at) (.+?) (?:by|at) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)(?: by car)?", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                (r"traffic to (.+?) (?:to arrive )?(?:by|at) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                # English - without arrival time
+                (r"how long (?:to get )?to (.+?) (?:by car)?", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                (r"(?:driving )?(?:time|traffic) to (.+)", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                (r"how's (?:the )?traffic to (.+)", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                (r"route to (.+)", Language.ENGLISH, IntentType.TRANSPORT_CAR),
+                # Italian - with arrival time
+                (r"arrivare a (.+?) (?:alle|per le) (\d{1,2}(?::\d{2})?)(?: in macchina)?", Language.ITALIAN, IntentType.TRANSPORT_CAR),
+                (r"traffico (?:per |verso )?(.+?) per arrivare alle (\d{1,2}(?::\d{2})?)", Language.ITALIAN, IntentType.TRANSPORT_CAR),
+                # Italian - without arrival time
+                (r"quanto (?:ci vuole|tempo) per (?:andare a |arrivare a )?(.+?)(?: in macchina)?", Language.ITALIAN, IntentType.TRANSPORT_CAR),
+                (r"traffico (?:per |verso )?(.+)", Language.ITALIAN, IntentType.TRANSPORT_CAR),
+                (r"strada per (.+)", Language.ITALIAN, IntentType.TRANSPORT_CAR),
+            ],
+            'transport_public': [
+                # English - with arrival time
+                (r"(?:get to|arrive at) (.+?) (?:by|at) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?) (?:by )?(?:bus|train|public (?:transit|transport))", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                (r"when (?:should i |do i need to |to )leave (?:for |to get to )?(.+?) (?:by|at) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                (r"(?:public )?(?:transit|transport|bus|train) to (.+?) (?:by|at) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                # English - without arrival time
+                (r"(?:public )?(?:transit|transport|bus|train) to (.+)", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                (r"how (?:do i |can i |to )get to (.+?)(?: by (?:bus|train|public transport))?", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                (r"when (?:should i |do i need to )leave (?:for |to get to )?(.+?)(?:\?)?$", Language.ENGLISH, IntentType.TRANSPORT_PUBLIC),
+                # Italian - with arrival time (MUST come before "quando devo partire per" pattern)
+                (r"quando devo partire per (?:andare a )?(.+?) per arrivare alle (\d{1,2}(?::\d{2})?)", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
+                (r"mezzi (?:pubblici )?(?:per |verso )?(.+?) per arrivare alle (\d{1,2}(?::\d{2})?)", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
+                (r"come arrivo a (.+?) alle (\d{1,2}(?::\d{2})?)(?: (?:con i mezzi|in bus|in treno))?", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
+                # Italian - without arrival time (MUST come after "per arrivare alle" patterns)
+                (r"mezzi (?:pubblici )?(?:per |verso )?(.+?)(?:\?)?$", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
+                (r"come arrivo a (.+?)(?: (?:con i mezzi|in bus|in treno))?(?:\?)?$", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
+                (r"quando devo partire per (.+?)(?:\?)?$", Language.ITALIAN, IntentType.TRANSPORT_PUBLIC),
             ],
         }
 
@@ -516,7 +614,20 @@ class IntentParser:
             if groups:
                 # Join all groups for expressions like "25% of 80"
                 params['expression'] = ' '.join(str(g) for g in groups if g)
-        
+
+        elif intent_type == IntentType.RECIPE_SEARCH:
+            if groups:
+                # Strip punctuation from query
+                params['query'] = groups[0].rstrip('.,!?;:')
+
+        elif intent_type in [IntentType.TRANSPORT_CAR, IntentType.TRANSPORT_PUBLIC]:
+            if groups:
+                # Strip punctuation from destination
+                params['destination'] = groups[0].rstrip('.,!?;:')
+                # Check if arrival time is provided (second group)
+                if len(groups) >= 2 and groups[1]:
+                    params['arrival_time'] = groups[1].strip()
+
         return params
     
     def parse(self, text: str) -> Dict[str, Any]:

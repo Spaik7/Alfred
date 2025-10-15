@@ -104,13 +104,16 @@ def calculate(expression: str) -> dict:
                 "formatted": f"{percentage}% of {value} = {result}"
             }
 
-        # Try Italian format: "10 100" (from "il 10% di 100")
-        if ' ' in expression and expression.count(' ') == 1:
+        # Try Italian format: "10 100" or "10 50%" (from "il 10% di 100" or "il 10% di 50%")
+        if ' ' in expression and len(expression.split()) == 2:
             parts = expression.split()
-            if len(parts) == 2 and parts[0].replace('.', '').isdigit() and parts[1].replace('.', '').isdigit():
+            part0_clean = parts[0].replace('.', '').replace('%', '')
+            part1_clean = parts[1].replace('.', '').replace('%', '')
+
+            if part0_clean.isdigit() and part1_clean.isdigit():
                 # This is likely a percentage from Italian pattern
-                percentage = float(parts[0])
-                value = float(parts[1])
+                percentage = float(parts[0].replace('%', ''))
+                value = float(parts[1].replace('%', ''))
                 result = (percentage / 100) * value
                 return {
                     "success": True,
@@ -119,12 +122,32 @@ def calculate(expression: str) -> dict:
                     "formatted": f"{percentage}% of {value} = {result}"
                 }
 
-        # Convert Italian word operators to symbols
+        # Convert word operators to symbols (Italian and English)
         expression = expression.lower()
+        # Italian
         expression = re.sub(r'\bpiù\b', '+', expression)
         expression = re.sub(r'\bmeno\b', '-', expression)
         expression = re.sub(r'\bper\b', '*', expression)
         expression = re.sub(r'\bdiviso\b', '/', expression)
+        # English
+        expression = re.sub(r'\bplus\b', '+', expression)
+        expression = re.sub(r'\bminus\b', '-', expression)
+        expression = re.sub(r'\btimes\b', '*', expression)
+        expression = re.sub(r'\bdivided\s+by\b', '/', expression)
+        expression = re.sub(r'\bover\b', '/', expression)
+
+        # Convert English word numbers to digits
+        word_to_num = {
+            'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+            'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+            'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13',
+            'fourteen': '14', 'fifteen': '15', 'sixteen': '16', 'seventeen': '17',
+            'eighteen': '18', 'nineteen': '19', 'twenty': '20', 'thirty': '30',
+            'forty': '40', 'fifty': '50', 'sixty': '60', 'seventy': '70',
+            'eighty': '80', 'ninety': '90', 'hundred': '100'
+        }
+        for word, num in word_to_num.items():
+            expression = re.sub(r'\b' + word + r'\b', num, expression)
 
         # Convert alternative symbols
         expression = expression.replace('x', '*')
