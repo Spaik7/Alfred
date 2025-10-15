@@ -8,6 +8,7 @@ __pycache__/
 # --- API Keys & Configuration ---
 config.py
 .env
+.session-id
 
 # --- Virtual environment ---
 myvenv/
@@ -39,4 +40,4 @@ Roadmap.txt
 *.before_*
 *.backup
 *.bak
-
+future/
