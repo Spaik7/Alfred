@@ -35,4 +35,10 @@ Thumbs.db
 .claude
 Roadmap.json
 Roadmap.txt
+*.backup# Backup files
+*.before_*
 *.backup
+*.bak
+
+# Temporary test files
+functions/function.py
