@@ -40,5 +40,3 @@ Roadmap.txt
 *.backup
 *.bak
 
-# Temporary test files
-functions/function.py
