@@ -1,81 +1,47 @@
-absl-py==2.3.1
-astunparse==1.6.3
-attrs==25.4.0
-audioread==3.0.1
-cachetools==6.2.0
-certifi==2025.10.5
-cffi==2.0.0
-charset-normalizer==3.4.3
-coloredlogs==15.0.1
-decorator==5.2.1
-filelock==3.19.1
-fitipy==0.1.2
-flatbuffers==20181003210633
-fsspec==2025.9.0
-gast==0.4.0
-google-auth==2.41.1
-google-auth-oauthlib==1.0.0
-google-pasta==0.2.0
-grpcio==1.74.0
-h5py==3.14.0
-humanfriendly==10.0
-idna==3.10
-Jinja2==3.1.6
-joblib==1.5.2
-keras==2.13.1
-lazy_loader==0.4
-libclang==18.1.1
-librosa==0.11.0
-llvmlite==0.45.1
-Markdown==3.9
-MarkupSafe==3.0.3
-ml_dtypes==0.5.3
-mpmath==1.3.0
-msgpack==1.1.1
-mycroft-precise==0.3.0
-networkx==3.5
-numba==0.62.1
-numpy==1.23.5
-oauthlib==3.3.1
-onnx==1.19.0
-onnxruntime==1.23.1
-opt_einsum==3.4.0
-packaging==25.0
-platformdirs==4.4.0
-pooch==1.8.2
-precise-runner==0.3.1
-prettyparse==0.2.0
-protobuf==6.32.1
-pyache==0.2.0
-pyasn1==0.6.1
-pyasn1_modules==0.4.2
-PyAudio==0.2.14
-pycparser==2.23
-requests==2.32.5
-requests-oauthlib==2.0.0
-rsa==4.9.1
-scikit-learn==1.7.2
-scipy==1.11.4
-six==1.17.0
-sonopy==0.1.2
-sounddevice==0.5.2
-soundfile==0.13.1
-soxr==1.0.0
-speechpy-fast==2.4
-sympy==1.14.0
-tensorboard==2.13.0
-tensorboard-data-server==0.7.2
-tensorflow==2.13.0
-tensorflow-cpu-aws==2.13.0
-tensorflow-estimator==2.13.0
-tensorflow-io-gcs-filesystem==0.37.1
-termcolor==3.1.0
-threadpoolctl==3.6.0
-torch==2.8.0
-tqdm==4.67.1
-typing==3.7.4.3
-typing_extensions==4.15.0
-urllib3==2.5.0
-wavio==0.0.9
-Werkzeug==3.1.3
-wrapt==1.14.1
+#!/usr/bin/env python3
+"""
+Fixed Mycroft Precise Listener
+Loads model with custom loss function registered
+"""
+
+import pyaudio
+import numpy as np
+from keras.models import load_model
+import keras.backend as K
+import argparse
+from pathlib import Path
+
+try:
+    import sonopy
+    HAS_SONOPY = True
+except ImportError:
+    HAS_SONOPY = False
+    print("⚠️  Warning: sonopy not found, using simplified features")
+
+
+def weighted_log_loss(y_true, y_pred):
+    """Custom loss function used by Mycroft Precise"""
+    false_pos = y_pred * (1.0 - y_true)
+    false_neg = (1.0 - y_pred) * y_true
+    return K.mean(false_pos + false_neg * 5.0)
+
+
+class SimplePreciseListener:
+    def __init__(self, model_path, chunk_size=2048, sample_rate=16000, recording_rate=48000):
+        self.chunk_size = chunk_size
+        self.sample_rate = sample_rate  # Target rate for model
+        self.recording_rate = recording_rate  # Actual mic rate
+        
+        # Load model with custom objects
+        print(f"Loading model: {model_path}")
+        self.model = load_model(
+            model_path, 
+            custom_objects={'weighted_log_loss': weighted_log_loss},
+            compile=False
+        )
+        print("✓ Model loaded successfully!")
+        print(f"ℹ️  Recording at {recording_rate}Hz, processing at {sample_rate}Hz")
+        
+        self.audio = pyaudio.PyAudio()
+        self.buffer = []
+        self.buffer_size = 
