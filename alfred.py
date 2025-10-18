@@ -18,13 +18,15 @@ from functions.function import (
     record_until_silence,
     transcribe
 )
-from config import RESPONSE_MODE, AI_MODEL, FINANCE_WATCHLIST
+from config import RESPONSE_MODE, AI_MODEL, FINANCE_WATCHLIST, OLLAMA_HOST
 
 # Phase 1.2: Infrastructure components
 from functions.logger import get_logger
 from functions.context_manager import get_context_manager
 from functions.error_handler import ErrorHandler
 from functions.response_templates import generate_template_response
+from functions.complex_query_parser import get_complex_parser
+from functions.simple_concatenation_parser import get_simple_concatenation_parser
 
 # =============================
 #     COMMAND LINE ARGUMENTS
@@ -145,7 +147,15 @@ logger.info("Context manager initialized (5 minute timeout, 10 turn history)")
 error_handler = ErrorHandler(logger=logger)
 logger.info("Error handler initialized")
 
-print("✅ Infrastructure ready (logging, context, error handling)!")
+# Initialize complex query parser
+complex_parser = get_complex_parser(ollama_host=OLLAMA_HOST, model="llama3.2")
+logger.info("Complex query parser initialized")
+
+# Initialize simple concatenation parser (regex-based, no LLM needed)
+simple_concat_parser = get_simple_concatenation_parser()
+logger.info("Simple concatenation parser initialized")
+
+print("✅ Infrastructure ready (logging, context, error handling, complex queries)!")
 
 # =============================
 #        SPEECH OUTPUT
@@ -325,6 +335,11 @@ while True:
                 # Use context manager to resolve pronouns and follow-ups
                 resolved_command, additional_params = context.handle_follow_up(command, "")
 
+                # Check for concatenated queries using simple regex parser
+                # This is more reliable than trying to get Ollama to parse
+                detected_lang_temp = 'it' if any(word in resolved_command.lower() for word in ['che', 'sono', 'è']) else 'en'
+                has_concatenation = simple_concat_parser.has_concatenation(resolved_command, detected_lang_temp)
+
                 intent_result = parse_intent(resolved_command)
 
                 # Merge additional params from context
@@ -344,9 +359,46 @@ while True:
                 lang_map = {'en': 'english', 'it': 'italian'}
                 speak_lang = lang_map.get(detected_lang, 'english')
 
-                # Execute the intent
+                # Check if this is a complex/concatenated query that needs Ollama analysis
                 intent = intent_result['intent']
                 params = intent_result['parameters']
+                confidence = intent_result['confidence']
+
+                # Handle concatenated queries using simple regex splitting
+                if has_concatenation:
+                    print("🔗 Concatenated query detected (multiple intents in one sentence)")
+                    sub_queries = simple_concat_parser.split_query(resolved_command, detected_lang)
+                    print(f"   📝 Split into {len(sub_queries)} parts:")
+                    for i, sq in enumerate(sub_queries, 1):
+                        print(f"      {i}. \"{sq}\"")
+
+                    # Parse each sub-query separately and execute
+                    # For now, just execute the first one (future: execute all and combine)
+                    if len(sub_queries) > 1:
+                        print(f"   ⚡ Processing first query: \"{sub_queries[0]}\"")
+                        # Re-parse the first sub-query
+                        first_result = parse_intent(sub_queries[0])
+                        intent = first_result['intent']
+                        params = first_result['parameters']
+                        print(f"   → Detected intent: {intent}")
+
+                # Check for complex queries (not concatenated, but complex like "what should I wear")
+                elif complex_parser.is_complex_query(intent, resolved_command, confidence):
+                    print("🤔 Complex query detected - analyzing with Ollama...")
+                    complex_result = complex_parser.parse_complex_query(resolved_command, detected_lang)
+
+                    if complex_result and complex_result.get('type') == 'complex':
+                        sub_intents = complex_result.get('intents', [])
+                        print(f"   ✅ Identified {len(sub_intents)} sub-intents: {sub_intents}")
+                        print(f"   Reason: {complex_result.get('reason')}")
+
+                        if sub_intents:
+                            intent = sub_intents[0]
+                            print(f"   ⚡ Executing primary intent: {intent}")
+                    else:
+                        print("   ℹ️  Ollama couldn't break it down - treating as general chat")
+
+                # Execute the intent
 
                 # Track data for logging - collect everything for log_conversation_turn()
                 user_input = command
@@ -733,6 +785,17 @@ while True:
                         final_output = speak("I need a destination, sir.", language=speak_lang)
                         response_text = final_output
                         success = False
+
+                # General chat fallback (use Ollama for conversational responses)
+                elif intent == 'general_chat':
+                    query = params.get('query', command)
+                    work_output = {'query': query, 'success': True}
+
+                    # Use Ollama to generate a conversational response
+                    ai_response = generate_response('general_chat', query, language=detected_lang, parameters={'query': query})
+                    final_output = speak(ai_response, language=speak_lang)
+                    response_text = final_output
+                    success = True
 
                 # Generic acknowledgment for other intents
                 elif intent != 'general_chat':

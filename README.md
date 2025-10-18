@@ -1,4 +1,8 @@
-# Alfred - Wake Word Detector
+# 🤖 Alfred - Your Personal Voice Assistant
+
+**A British Butler in Your Raspberry Pi**
+
+**Phase 1: ✅ COMPLETE** | Production Ready | 16 Intents Implemented
 
 Train a custom "Alfred" wake word detector optimized for Raspberry Pi. Tiny model (~32KB), 100% accuracy, works offline.
 
@@ -793,3 +797,63 @@ Built with PyTorch, Librosa, and custom CNN+GRU architecture.
 Optimized for Raspberry Pi deployment.
 
 Happy wake word detecting! 🎙️
+
+---
+
+## 📚 Documentation
+
+- **[ROADMAP.md](ROADMAP.md)** - Development phases and progress tracker
+- **[PROBLEMS.md](PROBLEMS.md)** - Known issues and future enhancements  
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
+- **[README.md](README.md)** - This file - setup and quick start
+
+---
+
+## 🎯 Current Status
+
+**Phase 1: Complete ✅**
+
+- Wake word detection
+- Voice transcription (Whisper)
+- Intent parsing (36 intents defined, 16 implemented)
+- Template responses with British butler personality
+- AI responses for weather and general chat
+- Concatenation detection for multi-part queries
+- Context management for follow-up questions
+- Bilingual support (English & Italian)
+
+**Implemented Intents (16):**
+- Templates (8): Time, Date, Volume×3, Calculate, Joke, System Status
+- AI (2): Weather, General Chat
+- Special (6): News, Finance, Recipes, Transport
+
+**Next:** Phase 2 - Mac Integration via SSH
+
+---
+
+## ⚡ Quick Examples
+
+```bash
+# Wake word
+"Hey Alfred"
+
+# Templates (instant)
+"What time is it?"
+"Che ore sono?"
+"Set volume to 75"
+"How's the Pi doing?"
+
+# AI responses
+"What's the weather?"
+"Che tempo fa?"
+"Hello"
+
+# Concatenation (NEW!)
+"Che tempo fa e che ore sono?"
+"What's the weather and what's the news?"
+
+# Complex queries (NEW!)
+"What should I wear today?"
+```
+
+---

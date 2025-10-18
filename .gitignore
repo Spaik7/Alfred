@@ -41,3 +41,4 @@ Roadmap.txt
 *.backup
 *.bak
 future/
+logs/
