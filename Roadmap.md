@@ -81,17 +81,19 @@ alfred/
 **Goal:** Remote control of Mac applications
 
 ### 2.1 SSH Infrastructure
-- [ ] SSH key authentication setup
-- [ ] AppleScript execution wrapper
+- [x] SSH key authentication setup (✅ Using password auth with expect)
+- [x] AppleScript execution wrapper (✅ ssh_helper.py with execute_applescript_file)
 - [ ] Connection pooling for performance
-- [ ] Error handling for connection failures
-- [ ] Retry logic
+- [x] Error handling for connection failures (✅ Timeout handling, error messages)
+- [x] Retry logic (✅ Built into SSH expect scripts)
 
 ### 2.2 Apple Mail Integration
 ```python
 functions/email.py:
-- [ ] Check unread count
-- [ ] Get recent emails (with sender, subject, date)
+- [x] Check unread count (✅ Complete - ssh_helper.py:check_mail())
+- [x] Get recent emails (✅ Complete - ssh_helper.py:get_recent_emails())
+      Shows last 5 emails with sender, subject, date, and read status
+      Voice: "show me my recent emails" / "dammi le ultime email"
 - [ ] Get emails from specific sender
 - [ ] Search emails by keyword
 - [ ] Read email content
@@ -104,7 +106,10 @@ functions/email.py:
 ### 2.3 Apple Calendar Integration
 ```python
 functions/calendar.py:
-- [ ] Get today's events
+- [x] Get today's events (✅ Works for non-recurring events)
+- [x] Get yesterday's events (✅ Basic support)
+- [x] Get tomorrow's events (✅ Basic support)
+- [x] Check specific calendar by name (✅ e.g., "check Casa calendar")
 - [ ] Get week's schedule
 - [ ] Get next event
 - [ ] Check availability at time
@@ -113,6 +118,9 @@ functions/calendar.py:
 - [ ] Modify event (with PIN)
 - [ ] Delete event (with PIN)
 - [ ] Get event details
+
+Known Issue: Recurring events (birthdays, weekly meetings) not detected
+See PROBLEMS.md #6 for details
 ```
 
 ### 2.4 Mac Application Control
@@ -472,10 +480,12 @@ ssh-copy-id your_user@mac_ip
 - ✅ Provides general conversational responses (NEW!)
 
 ### Phase 2 Complete When:
-- ✅ Can read and send emails
-- ✅ Manages calendar events
-- ✅ Opens Mac applications remotely
-- ✅ PIN protection works
+- 🔄 Can read emails (unread count ✅, list recent ✅, full email reading ⏳)
+- 🔄 Manages calendar events (basic ✅, recurring events ❌)
+- ⏳ Opens Mac applications remotely
+- ⏳ PIN protection works
+
+**Phase 2 Progress: 35% Complete**
 
 ### Phase 3 Complete When:
 - ✅ Sends Telegram messages

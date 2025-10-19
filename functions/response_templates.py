@@ -317,6 +317,38 @@ class ResponseTemplates:
                     "Come desidera, signore.",
                     "Certamente, signore.",
                 ]
+            },
+
+            # Email check responses
+            'email_check': {
+                'en': [
+                    "You have {count} unread {emails}, sir.",
+                    "{count} unread {emails} in your inbox, sir.",
+                    "There {are} {count} unread {emails} awaiting your attention, sir.",
+                    "{count} {emails} unread at present, sir.",
+                ],
+                'it': [
+                    "{lei_ha} {count} email non {lette}, signore.",
+                    "Ci sono {count} email non {lette} nella casella, signore.",
+                    "{count} email non {lette} in attesa, signore.",
+                    "Al momento {lei_ha} {count} email non {lette}, signore.",
+                ]
+            },
+
+            # Email list responses
+            'email_list': {
+                'en': [
+                    "Your recent emails, sir: {email_list}",
+                    "Here are your last {count} {emails}, sir: {email_list}",
+                    "{count} recent {emails}: {email_list}",
+                    "The most recent {emails}, sir: {email_list}",
+                ],
+                'it': [
+                    "Le sue email recenti, signore: {email_list}",
+                    "Ecco le ultime {count} email, signore: {email_list}",
+                    "{count} email recenti: {email_list}",
+                    "Le email più recenti, signore: {email_list}",
+                ]
             }
         }
 
@@ -532,6 +564,42 @@ class ResponseTemplates:
         if intent == 'greeting':
             tod = self._get_time_of_day_greeting(language)
             values.update(tod)
+
+        # Email check: add pluralization
+        if intent == 'email_check':
+            count = parameters.get('count', parameters.get('unread_count', 0))
+            values['count'] = count
+            # English pluralization
+            values['emails'] = 'email' if count == 1 else 'emails'
+            values['are'] = 'is' if count == 1 else 'are'
+            # Italian pluralization
+            values['lei_ha'] = 'Ha' if count == 1 else 'Ha'
+            values['lette'] = 'letta' if count == 1 else 'lette'
+
+        # Email list: format email list
+        if intent == 'email_list':
+            count = parameters.get('count', 0)
+            emails = parameters.get('emails', [])
+            values['count'] = count
+            values['emails'] = 'email' if count == 1 else 'emails'
+
+            # Build email list string
+            email_items = []
+            for i, email in enumerate(emails, 1):
+                sender = email.get('sender', 'Unknown')
+                # Extract just name from "Name <email@domain.com>"
+                if '<' in sender:
+                    sender = sender.split('<')[0].strip()
+                subject = email.get('subject', 'No subject')
+                read_status = "read" if email.get('is_read', False) else "unread"
+
+                if language == 'en':
+                    email_items.append(f"Number {i}, from {sender}, subject {subject}, {read_status}")
+                else:
+                    read_it = "letta" if email.get('is_read', False) else "non letta"
+                    email_items.append(f"Numero {i}, da {sender}, oggetto {subject}, {read_it}")
+
+            values['email_list'] = '. '.join(email_items) + '.' if email_items else ''
 
         # Format the template
         try:

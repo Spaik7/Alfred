@@ -193,6 +193,64 @@ Post-process Italian responses to replace "sir" → "signore"
 
 ---
 
+### 6. Calendar Recurring Events Not Detected
+**Status:** Open
+**Priority:** Medium
+**Date Reported:** 2025-10-19
+
+**Issue:**
+Calendar events with yearly or weekly recurrence are not being detected on their occurrence dates. Only non-recurring events in the target date range are found.
+
+**Details:**
+```
+Oct 17, 2025 (Friday):
+Expected: 2 events (Daniele Rizzo birthday + Weekly Call)
+Actual: 0 events found
+
+Oct 19, 2025 (Sunday/today):
+Expected: 1 event (pranzo)
+Actual: 1 event ✅ (works for non-recurring events)
+
+Calendar has 854 total events, including:
+- Birthday: starts Oct 17, 2005, recurs yearly (FREQ=YEARLY)
+- Weekly Call (Mon): starts Nov 25, 2024, recurs weekly (FREQ=WEEKLY)
+- Weekly Call (Fri): starts Jul 25, 2025, recurs weekly (FREQ=WEEKLY)
+```
+
+**Root Cause:**
+AppleScript query `whose start date >= targetDate and start date < endDate` checks the ORIGINAL start date of the event, not the occurrence date. Recurring events have start dates from years ago (birthday from 2005), so they don't match the date range filter.
+
+**Current Workaround Attempts:**
+1. ❌ Iterate through ALL events (854) - times out after 30s
+2. ❌ Filter to events within 400-day window + manually check recurrence - still times out
+3. ❌ Separate pass for old yearly events - doesn't find them
+
+**Proposed Fix:**
+Use Python with EventKit framework instead of AppleScript:
+```python
+from EventKit import EKEventStore
+predicate = store.predicateForEventsWithStartDate_endDate_calendars_(start_ns, end_ns, calendars)
+events = store.eventsMatchingPredicate_(predicate)
+```
+EventKit's `predicateForEventsWithStartDate_endDate_calendars_` properly handles recurring events and returns occurrences in the date range.
+
+**Challenge:**
+SSH expect script mangles Python f-strings and complex quotes when sending commands to Mac. Need to write Python script to temp file first, then execute it.
+
+**Alternative Fix:**
+Use JavaScript for Automation (JXA) which has better date handling than AppleScript.
+
+**Files Affected:**
+- `/Volumes/jarvis/functions/ssh_helper.py` (lines 414-528) - `get_calendar_events_for_date()`
+- Related functions: `get_calendar_events_today()`, `get_calendar_events_yesterday()`, `get_calendar_events_tomorrow()`, `get_calendar_events_specific()`
+
+**Impact:**
+- Calendar yesterday/tomorrow checks don't work for recurring events
+- Birthday reminders not working
+- Weekly recurring meetings not detected
+
+---
+
 ## ✅ Fixed Issues
 
 ### Variable Name Collision - `duration`

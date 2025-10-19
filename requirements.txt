@@ -58,6 +58,7 @@ prettyparse==0.2.0
 protobuf==6.32.1
 psutil==7.1.0
 pyache==0.2.0
+python-dotenv==1.0.0
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 PyAudio==0.2.14

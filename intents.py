@@ -30,8 +30,8 @@ class IntentType(Enum):
     DATE = "date"                            # TEMPLATE (simple_templates.py)
 
     # Email
-    EMAIL_CHECK = "email_check"              # TEMPLATE (uses SSH to Mac, template for response)
-    EMAIL_LIST = "email_list"                # TEMPLATE (list recent emails, template for response)
+    EMAIL_CHECK = "email_check"              # AI (uses SSH to Mac, Ollama for response)
+    EMAIL_LIST = "email_list"                # AI (list recent emails)
     EMAIL_READ = "email_read"                # NOT IMPLEMENTED
     EMAIL_SEND = "email_send"                # NOT IMPLEMENTED
     EMAIL_SEARCH = "email_search"            # NOT IMPLEMENTED
@@ -120,55 +120,37 @@ class IntentParser:
             
             # Time - specific phrases
             'time': [
-                # English - more variations
+                # English
                 (r"what time is it", Language.ENGLISH, IntentType.TIME),
                 (r"what'?s? the time", Language.ENGLISH, IntentType.TIME),
                 (r"tell me the time", Language.ENGLISH, IntentType.TIME),
-                (r"(?:give me |show me )?(?:the )?(?:current )?time", Language.ENGLISH, IntentType.TIME),
-                (r"(?:do you have |got )(?:the )?time", Language.ENGLISH, IntentType.TIME),
-                (r"time (?:please|check)", Language.ENGLISH, IntentType.TIME),
-                # Italian - more variations with pronouns (must be specific to time/ora)
+                # Italian  
                 (r"che or[ae] (?:è|sono)", Language.ITALIAN, IntentType.TIME),
                 (r"(?:mi )?di[ci]? (?:che ore sono|l'ora) (?:che ora è)", Language.ITALIAN, IntentType.TIME),
-                (r"(?:dammi|mostrami|dimmi) l'ora(?:\?)?$", Language.ITALIAN, IntentType.TIME),
-                (r"(?:hai |sa )l'ora", Language.ITALIAN, IntentType.TIME),
-                (r"ora (?:attuale|corrente|per favore)", Language.ITALIAN, IntentType.TIME),
             ],
             
             # Date - must match BEFORE calendar_today
             'date': [
-                # English - more variations
-                (r"what'?s? (?:the )?(?:today'?s? )?date", Language.ENGLISH, IntentType.DATE),
-                (r"what day is it(?: today)?", Language.ENGLISH, IntentType.DATE),
-                (r"(?:tell me |give me |show me )?(?:the )?(?:current )?date", Language.ENGLISH, IntentType.DATE),
-                (r"(?:what'?s? )?today'?s? date", Language.ENGLISH, IntentType.DATE),
-                (r"date (?:today|please|check)", Language.ENGLISH, IntentType.DATE),
-                # Italian - "che giorno è" must match before calendar (must be specific to date/data)
+                # English
+                (r"what'?s? (?:the )?date", Language.ENGLISH, IntentType.DATE),
+                (r"what day is it", Language.ENGLISH, IntentType.DATE),
+                # Italian - "che giorno è" must match before calendar
                 (r"che giorno (?:è|e)(?: oggi)?", Language.ITALIAN, IntentType.DATE),
                 (r"(?:mi )?di[ci]? la data", Language.ITALIAN, IntentType.DATE),
-                (r"(?:dammi|mostrami|dimmi) la data(?:\?)?$", Language.ITALIAN, IntentType.DATE),
-                (r"data (?:di )?oggi", Language.ITALIAN, IntentType.DATE),
-                (r"qual (?:è|e) la data", Language.ITALIAN, IntentType.DATE),
             ],
             
             # Weather - must match BEFORE calendar to avoid "oggi" matching calendar_today
             'weather': [
-                # English - more variations
-                (r"what'?s? (?:the )?weather(?: like)?(?: today| outside| out there)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
-                (r"how'?s? (?:the )?weather(?: today| outside| looking)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
-                (r"is it (?:going to |gonna )?(?:rain|snow|storm)(?: today)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
-                (r"(?:tell me |give me |show me )?(?:the )?weather(?: forecast)?(?: (?:in|for) (.+))?", Language.ENGLISH, IntentType.WEATHER),
-                (r"weather (?:forecast |report |update )?(in |for )?(.+)?", Language.ENGLISH, IntentType.WEATHER),
-                (r"(?:check |look up )?(?:the )?weather(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
-                (r"(?:do i need |should i bring )(?:an |my )?(?:umbrella|jacket)(?: today)?", Language.ENGLISH, IntentType.WEATHER),
+                # English
+                (r"what'?s? (?:the )?weather(?: like)?(?: today)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
+                (r"how'?s? (?:the )?weather(?: today)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
+                (r"is it (?:going to )?rain(?: today)?(?: in (.+))?", Language.ENGLISH, IntentType.WEATHER),
+                (r"weather (?:forecast )?(in |for )?(.+)?", Language.ENGLISH, IntentType.WEATHER),
                 # Italian - "che tempo fa" is THE weather question
-                (r"che tempo fa(?: oggi| fuori)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"com'?è il tempo(?: oggi| fuori)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"piove(?: oggi| adesso)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"(?:il )?meteo(?: oggi| di oggi)?(?: (?:a|di) (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"(?:dimmi|dammi|mostrami) (?:il )?(?:meteo|tempo)(?: (?:a|di) (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"(?:controlla|guarda) (?:il )?(?:meteo|tempo)(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
-                (r"(?:devo portare |serve )(?:l'|un )?(?:ombrello|giacca)(?: oggi)?", Language.ITALIAN, IntentType.WEATHER),
+                (r"che tempo fa(?: oggi)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
+                (r"com'?è il tempo(?: oggi)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
+                (r"piove(?: oggi)?(?: a (.+))?", Language.ITALIAN, IntentType.WEATHER),
+                (r"(?:il )?meteo(?: oggi)?(?: (?:a|di) (.+))?", Language.ITALIAN, IntentType.WEATHER),
             ],
             
             # Email - Specific actions first
@@ -189,51 +171,31 @@ class IntentParser:
                 (r"cerca (?:nelle )?email (.+)", Language.ITALIAN, IntentType.EMAIL_SEARCH),
                 (r"trova email (?:su |con |riguardo )(.+)", Language.ITALIAN, IntentType.EMAIL_SEARCH),
             ],
-            # Email read must come BEFORE email_list to match "read" verbs first
             'email_read': [
-                # English - "READ" verbs for reading aloud
-                (r"read (?:me )?(?:my )?(?:latest |last |recent |new )?emails?", Language.ENGLISH, IntentType.EMAIL_READ),
-                (r"read (?:me )?(?:the )?(?:latest |last |recent )?emails?(?: from (.+))?", Language.ENGLISH, IntentType.EMAIL_READ),
-                (r"read (?:out )?(?:my )?(?:latest |last |recent )?(?:email|mail)", Language.ENGLISH, IntentType.EMAIL_READ),
-                (r"(?:can you |please )?read (?:my )?emails?", Language.ENGLISH, IntentType.EMAIL_READ),
-                # Italian - "LEGGI" verbs for reading aloud (must be specific)
-                (r"(?:leggi|leggimi)(?: le| gli)? (?:ultime |recenti |nuove )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_READ),
-                (r"leggi (?:ad alta voce )?(?:le )?(?:mie )?(?:ultime |recenti )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_READ),
-                (r"(?:puoi |per favore )?legg(?:i|ere) (?:le )?(?:mie )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_READ),
-                # Reading from specific sender (both languages)
-                (r"read (?:me )?emails? from (.+)", Language.ENGLISH, IntentType.EMAIL_READ),
-                (r"leggi (?:le )?e?-?mails? di (.+)", Language.ITALIAN, IntentType.EMAIL_READ),
-            ],
-            # Email list comes AFTER email_read to avoid "read" conflict
-            'email_list': [
-                # English - SHOW/LIST/DISPLAY verbs for summary only
-                (r"(?:show|list|get|display|pull up)(?: me)?(?: my)? (?:recent |last |latest |new )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                (r"what are (?:my )?(?:recent |last |latest |new )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                (r"(?:let me )?see (?:my )?(?:recent |last |latest )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                (r"give me (?:my )?(?:recent |last |latest )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                (r"i (?:want to |wanna |need to )?(?:see|check|view) (?:my )?(?:recent |last |latest )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                (r"(?:what|which) (?:are )?(?:my )?(?:latest |recent |new )emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                # Possessive patterns without verbs - "my latest emails", "my recent emails"
-                (r"my (?:recent |last |latest |new )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
-                # Italian - MOSTRA/DAMMI verbs for summary only (NOT leggi!)
-                (r"(?:mostra|mostrami|dammi|elenca|elencami|fammi vedere)(?: le| gli)? (?:ultime |recenti |nuove )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_LIST),
-                (r"quali sono le (?:ultime |recenti |nuove )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_LIST),
-                (r"(?:fammi )?vedere le (?:ultime |recenti |nuove )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_LIST),
-                (r"(?:che |quali )(?:sono )?(?:le )?(?:mie )?(?:ultime |recenti )e?-?mails?", Language.ITALIAN, IntentType.EMAIL_LIST),
-                # Possessive patterns without verbs - "le mie email", "le mie ultime email"
-                (r"le (?:mie )?(?:ultime |recenti |nuove )?e?-?mails?", Language.ITALIAN, IntentType.EMAIL_LIST),
+                # English
+                (r"read (?:my )?(?:latest |last |recent )?emails?(?: from (.+))?", Language.ENGLISH, IntentType.EMAIL_READ),
+                (r"show me emails? from (.+)", Language.ENGLISH, IntentType.EMAIL_READ),
+                # Italian
+                (r"leggi (?:le )?(?:ultime )?email(?: di (.+))?", Language.ITALIAN, IntentType.EMAIL_READ),
+                (r"mostrami (?:le )?email di (.+)", Language.ITALIAN, IntentType.EMAIL_READ),
             ],
             'email_check': [
-                # English - checking for unread count
-                (r"check (?:my )?(?:emails?|mail|inbox|messages)", Language.ENGLISH, IntentType.EMAIL_CHECK),
-                (r"(?:do i have |got |any )(?:new )?(?:unread )?(?:emails?|mail|messages)", Language.ENGLISH, IntentType.EMAIL_CHECK),
-                (r"how many (?:unread )?(?:emails?|messages) (?:do i have|have i got)", Language.ENGLISH, IntentType.EMAIL_CHECK),
-                (r"(?:any|got) (?:new )?mail", Language.ENGLISH, IntentType.EMAIL_CHECK),
-                # Italian - various phrasings
-                (r"controlla (?:la |le )?(?:posta|email|e-mail)", Language.ITALIAN, IntentType.EMAIL_CHECK),
-                (r"(?:ho |ci sono )?(?:nuove |delle )?(?:email|e-mail|posta)", Language.ITALIAN, IntentType.EMAIL_CHECK),
-                (r"quante (?:email|e-mail) (?:ho|non lette)", Language.ITALIAN, IntentType.EMAIL_CHECK),
-                (r"(?:controlla|guarda) (?:se ho )?(?:posta|email|e-mail)", Language.ITALIAN, IntentType.EMAIL_CHECK),
+                # English
+                (r"check (?:my )?(?:emails?|mail|inbox)", Language.ENGLISH, IntentType.EMAIL_CHECK),
+                (r"(?:do i have |any )(?:new )?(?:unread )?emails?", Language.ENGLISH, IntentType.EMAIL_CHECK),
+                # Italian
+                (r"controlla (?:la )?(?:posta|email)", Language.ITALIAN, IntentType.EMAIL_CHECK),
+                (r"(?:ho )?(?:nuove )?email", Language.ITALIAN, IntentType.EMAIL_CHECK),
+            ],
+            'email_list': [
+                # English
+                (r"(?:show|list|get)(?: me)?(?: my)? (?:recent |last |latest )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
+                (r"what are (?:my )?(?:recent |last |latest )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
+                (r"read (?:my )?(?:recent |last )?emails?", Language.ENGLISH, IntentType.EMAIL_LIST),
+                # Italian
+                (r"(?:mostrami|dammi|elenca)(?: le)? (?:ultime |recenti )?email", Language.ITALIAN, IntentType.EMAIL_LIST),
+                (r"quali sono le (?:ultime |recenti )?email", Language.ITALIAN, IntentType.EMAIL_LIST),
+                (r"leggi (?:le )?(?:ultime |recenti )?email", Language.ITALIAN, IntentType.EMAIL_LIST),
             ],
 
             # Calendar - NOW comes after weather/date
@@ -262,19 +224,15 @@ class IntentParser:
                 (r"(?:qual è il|quando è) (?:mio )?prossimo (?:evento|appuntamento)", Language.ITALIAN, IntentType.CALENDAR_NEXT),
             ],
             'calendar_today': [
-                # English - various ways to ask about today
-                (r"what'?s? (?:on )?(?:my )?(?:calendar|schedule|agenda) (?:for )?today", Language.ENGLISH, IntentType.CALENDAR_TODAY),
-                (r"(?:do i have |got |any )(?:any )?(?:events|appointments|meetings|plans) (?:for )?today", Language.ENGLISH, IntentType.CALENDAR_TODAY),
+                # English - More specific now (doesn't catch everything)
+                (r"what'?s? (?:on )?(?:my )?(?:calendar|schedule) today", Language.ENGLISH, IntentType.CALENDAR_TODAY),
+                (r"(?:do i have )?(?:any )?(?:events|appointments|meetings) today", Language.ENGLISH, IntentType.CALENDAR_TODAY),
                 (r"what'?s? (?:on )?(?:my )?(?:calendar|schedule)(?:\?)?$", Language.ENGLISH, IntentType.CALENDAR_TODAY),
-                (r"(?:check|show|tell me) (?:my |the )?(?:calendar|schedule|agenda)(?:\?)?$", Language.ENGLISH, IntentType.CALENDAR_TODAY),
-                (r"(?:what am i|what have i got|what do i have) (?:doing )?today", Language.ENGLISH, IntentType.CALENDAR_TODAY),
-                (r"today'?s? (?:schedule|calendar|events|agenda)", Language.ENGLISH, IntentType.CALENDAR_TODAY),
-                # Italian - more variations with pronouns
-                (r"(?:cosa|che cosa|che) (?:ho |c'è |ci sono )?(?:in |nel |sul )?(?:calendario|programma|agenda)(?: (?:per )?oggi)?", Language.ITALIAN, IntentType.CALENDAR_TODAY),
-                (r"(?:ho |ci sono )?(?:degli )?appuntamenti(?: per)? oggi", Language.ITALIAN, IntentType.CALENDAR_TODAY),
-                (r"(?:controlla|controllami|mostra|mostrami|dimmi) (?:il |gli )?(?:calendario|appuntamenti)(?:\?)?$", Language.ITALIAN, IntentType.CALENDAR_TODAY),
-                (r"(?:cosa|che) (?:faccio|devo fare) oggi", Language.ITALIAN, IntentType.CALENDAR_TODAY),
-                (r"(?:calendario|programma|agenda) (?:di )?oggi", Language.ITALIAN, IntentType.CALENDAR_TODAY),
+                (r"check (?:my |the )?(?:calendar|schedule)(?:\?)?$", Language.ENGLISH, IntentType.CALENDAR_TODAY),
+                # Italian - More specific (doesn't match "che tempo" or "che giorno")
+                (r"(?:cosa|che cosa) (?:ho |c'è )?(?:in )?(?:calendario|programma)(?: oggi)?", Language.ITALIAN, IntentType.CALENDAR_TODAY),
+                (r"(?:ho )?appuntamenti oggi", Language.ITALIAN, IntentType.CALENDAR_TODAY),
+                (r"controlla (?:il )?calendario(?:\?)?$", Language.ITALIAN, IntentType.CALENDAR_TODAY),
             ],
             'calendar_yesterday': [
                 # English
@@ -314,31 +272,22 @@ class IntentParser:
 
             # System
             'system_shutdown': [
-                # English - more variations
+                # English
                 (r"shutdown (?:the )?(?:mac|computer|system)", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
                 (r"turn off (?:the )?(?:mac|computer)", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
-                (r"power off (?:the )?(?:mac|computer)", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
-                (r"shut (?:it |the mac )?down", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
-                (r"power down (?:the )?(?:mac|computer)", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
-                # Italian - more variations
+                (r"power off (?:the )?mac", Language.ENGLISH, IntentType.SYSTEM_SHUTDOWN),
+                # Italian
                 (r"spegni (?:il )?(?:mac|computer)", Language.ITALIAN, IntentType.SYSTEM_SHUTDOWN),
-                (r"arresta (?:il )?(?:sistema|computer)", Language.ITALIAN, IntentType.SYSTEM_SHUTDOWN),
-                (r"chiudi (?:il )?(?:mac|computer)", Language.ITALIAN, IntentType.SYSTEM_SHUTDOWN),
+                (r"arresta (?:il )?sistema", Language.ITALIAN, IntentType.SYSTEM_SHUTDOWN),
             ],
             'system_status': [
-                # English - more variations
-                (r"how'?s? (?:the )?(?:pi|raspberry|system)(?: doing| running)?", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                (r"(?:system|pi|raspberry) status", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                (r"(?:check|show|tell me) (?:the )?(?:system|pi) (?:status)?", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                (r"(?:what'?s? )?(?:the )?(?:system|pi) (?:doing|status)", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                (r"(?:how are you|how's it going)", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                (r"status (?:report|check|update)", Language.ENGLISH, IntentType.SYSTEM_STATUS),
-                # Italian - more variations
+                # English
+                (r"how'?s? (?:the )?(?:pi|raspberry|system)(?: doing)?", Language.ENGLISH, IntentType.SYSTEM_STATUS),
+                (r"(?:system|pi) status", Language.ENGLISH, IntentType.SYSTEM_STATUS),
+                (r"check (?:the )?(?:system|pi)", Language.ENGLISH, IntentType.SYSTEM_STATUS),
+                # Italian
                 (r"come sta (?:il )?(?:pi|sistema)", Language.ITALIAN, IntentType.SYSTEM_STATUS),
-                (r"stato (?:del )?(?:sistema|pi)", Language.ITALIAN, IntentType.SYSTEM_STATUS),
-                (r"(?:controlla|mostrami|dimmi) (?:lo )?stato (?:del sistema)?", Language.ITALIAN, IntentType.SYSTEM_STATUS),
-                (r"come (?:va|stai|va il sistema)", Language.ITALIAN, IntentType.SYSTEM_STATUS),
-                (r"(?:dammi |fammi vedere )?(?:lo )?stato", Language.ITALIAN, IntentType.SYSTEM_STATUS),
+                (r"stato (?:del )?sistema", Language.ITALIAN, IntentType.SYSTEM_STATUS),
             ],
 
             # Local volume control (Pi speakers)
@@ -472,17 +421,12 @@ class IntentParser:
             
             # General functions
             'translate': [
-                # English - more variations
+                # English
                 (r"translate (.+?) (?:to|into) (\w+)", Language.ENGLISH, IntentType.TRANSLATE),
                 (r"how do you say (.+?) in (\w+)", Language.ENGLISH, IntentType.TRANSLATE),
-                (r"(?:what'?s? |what is )(.+?) in (\w+)", Language.ENGLISH, IntentType.TRANSLATE),
-                (r"(?:can you )?say (.+?) in (\w+)", Language.ENGLISH, IntentType.TRANSLATE),
-                (r"(.+?) in (\w+) (?:please|translation)", Language.ENGLISH, IntentType.TRANSLATE),
-                # Italian - more variations
+                # Italian
                 (r"traduci (.+?) in (\w+)", Language.ITALIAN, IntentType.TRANSLATE),
                 (r"come si dice (.+?) in (\w+)", Language.ITALIAN, IntentType.TRANSLATE),
-                (r"(?:cos'?è |cosa è )(.+?) in (\w+)", Language.ITALIAN, IntentType.TRANSLATE),
-                (r"(?:dimmi|dammi) (.+?) in (\w+)", Language.ITALIAN, IntentType.TRANSLATE),
             ],
             'calculate': [
                 # English - More specific patterns only
@@ -505,39 +449,26 @@ class IntentParser:
                 (r"^(\d+[\d\s\+\-\*\/x×÷\%\.]+\d+)", Language.ENGLISH, IntentType.CALCULATE),
             ],
             'joke': [
-                # English - more variations
+                # English
                 (r"tell me a joke", Language.ENGLISH, IntentType.JOKE),
                 (r"make me laugh", Language.ENGLISH, IntentType.JOKE),
-                (r"(?:say |tell me )?something funny", Language.ENGLISH, IntentType.JOKE),
-                (r"(?:do you )?(?:know |got )(?:any |a )?joke", Language.ENGLISH, IntentType.JOKE),
-                (r"(?:give me |I need )a (?:good )?joke", Language.ENGLISH, IntentType.JOKE),
-                (r"joke (?:time|please)", Language.ENGLISH, IntentType.JOKE),
-                (r"(?:crack |tell )(?:me )?a joke", Language.ENGLISH, IntentType.JOKE),
-                # Italian - more variations
+                (r"(?:say )?something funny", Language.ENGLISH, IntentType.JOKE),
+                # Italian
                 (r"dimmi una battuta", Language.ITALIAN, IntentType.JOKE),
-                (r"raccontami (?:una barzelletta|uno scherzo|una battuta)", Language.ITALIAN, IntentType.JOKE),
+                (r"raccontami (?:una barzelletta|uno scherzo)", Language.ITALIAN, IntentType.JOKE),
                 (r"fammi ridere", Language.ITALIAN, IntentType.JOKE),
-                (r"(?:dammi |voglio )?una (?:battuta|barzelletta)", Language.ITALIAN, IntentType.JOKE),
-                (r"(?:conosci |hai )(?:delle |una )?(?:battute|barzellette)", Language.ITALIAN, IntentType.JOKE),
-                (r"(?:racconta|di') (?:una )?battuta", Language.ITALIAN, IntentType.JOKE),
             ],
 
             # News
             'news': [
-                # English - more variations
-                (r"what'?s? (?:the )?(?:latest |today'?s? |breaking )?news", Language.ENGLISH, IntentType.NEWS),
-                (r"(?:give me |tell me |show me )?(?:the )?(?:news|headlines|latest)", Language.ENGLISH, IntentType.NEWS),
-                (r"(?:any |got any )(?:new )?news", Language.ENGLISH, IntentType.NEWS),
-                (r"(?:check |read )(?:the )?news", Language.ENGLISH, IntentType.NEWS),
-                (r"(?:what'?s? )?happening (?:in the world|today)", Language.ENGLISH, IntentType.NEWS),
-                (r"news (?:update|briefing|summary)", Language.ENGLISH, IntentType.NEWS),
-                # Italian - more variations
-                (r"(?:quali sono |dammi |mostrami )?(?:le )?(?:ultime |nuove )?notizie", Language.ITALIAN, IntentType.NEWS),
+                # English
+                (r"what'?s? (?:the )?(?:latest )?news", Language.ENGLISH, IntentType.NEWS),
+                (r"(?:give me |tell me )?(?:the )?(?:news|headlines)", Language.ENGLISH, IntentType.NEWS),
+                (r"any news", Language.ENGLISH, IntentType.NEWS),
+                # Italian
+                (r"(?:quali sono |dammi )?(?:le )?(?:ultime )?notizie", Language.ITALIAN, IntentType.NEWS),
                 (r"che notizie ci sono", Language.ITALIAN, IntentType.NEWS),
                 (r"novità", Language.ITALIAN, IntentType.NEWS),
-                (r"(?:dimmi |fammi sapere )(?:le )?(?:ultime )?notizie", Language.ITALIAN, IntentType.NEWS),
-                (r"(?:cosa|che cosa) (?:succede|è successo) (?:nel mondo|oggi)", Language.ITALIAN, IntentType.NEWS),
-                (r"(?:leggi |controlla )(?:le )?notizie", Language.ITALIAN, IntentType.NEWS),
             ],
 
             # Finance
@@ -556,31 +487,24 @@ class IntentParser:
 
             # Recipes/Food
             'recipe_search': [
-                # English - more variations
-                (r"(?:find |search |look up |show me |get me )?(?:a )?recipe(?:s)? (?:for |with |using )?(.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
-                (r"how (?:do i |to |can i )?(?:make|cook|prepare) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
-                (r"(?:i want to |i'll |i wanna |let's )(?:make|cook|prepare) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
-                (r"(?:give me |show me )(?:a )?(?:recipe|recipes) (?:for )?(.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
-                (r"(?:looking for |need )(?:a )?recipe (?:for )?(.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
-                # Italian - more variations
-                (r"(?:cerca |trova |mostrami |dammi )?(?:una )?ricetta (?:per |di |con |usando )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
-                (r"come (?:si )?(?:fa|cucina|prepara|si prepara) (?:il |la |i |le )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
-                (r"voglio (?:fare|cucinare|preparare) (?:il |la |i |le )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
-                (r"(?:ho bisogno di |cerco )(?:una )?ricetta (?:per )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+                # English
+                (r"(?:find |search |show me )?(?:a )?recipe(?:s)? (?:for |with )?(.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                (r"how (?:do i |to )?(?:make|cook) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                (r"(?:i want to |i'll )(?:make|cook) (.+)", Language.ENGLISH, IntentType.RECIPE_SEARCH),
+                # Italian
+                (r"(?:cerca |trova |mostrami )?(?:una )?ricetta (?:per |di |con )?(.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+                (r"come (?:si )?(?:fa|cucina|prepara) (.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
+                (r"voglio (?:fare|cucinare|preparare) (.+)", Language.ITALIAN, IntentType.RECIPE_SEARCH),
             ],
             'recipe_random': [
-                # English - more variations
-                (r"(?:give me |suggest |show me |find me )?(?:a )?random recipe", Language.ENGLISH, IntentType.RECIPE_RANDOM),
-                (r"(?:what|something) (?:should i |can i |could i |to )(?:cook|make|eat|prepare)", Language.ENGLISH, IntentType.RECIPE_RANDOM),
-                (r"(?:recipe |cooking )?(?:idea|suggestion)", Language.ENGLISH, IntentType.RECIPE_RANDOM),
-                (r"(?:surprise me |inspire me )(?:with )?(?:a recipe)?", Language.ENGLISH, IntentType.RECIPE_RANDOM),
-                (r"(?:i don't know |not sure )what to (?:cook|make|eat)", Language.ENGLISH, IntentType.RECIPE_RANDOM),
-                # Italian - more variations
+                # English
+                (r"(?:give me |suggest |show me )?(?:a )?random recipe", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                (r"(?:what|something) (?:should i |can i |to )(?:cook|make|eat)", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                (r"recipe idea", Language.ENGLISH, IntentType.RECIPE_RANDOM),
+                # Italian
                 (r"ricetta (?:a )?caso", Language.ITALIAN, IntentType.RECIPE_RANDOM),
-                (r"(?:cosa |che cosa )?(?:posso |dovrei |potrei )?(?:cucinare|preparare|mangiare|fare)", Language.ITALIAN, IntentType.RECIPE_RANDOM),
-                (r"(?:suggerimento |idea )(?:per )?(?:una )?ricetta", Language.ITALIAN, IntentType.RECIPE_RANDOM),
-                (r"(?:sorprendimi|ispirazione) (?:con )?(?:una ricetta)?", Language.ITALIAN, IntentType.RECIPE_RANDOM),
-                (r"non so (?:cosa |che )(?:cucinare|preparare|fare da mangiare)", Language.ITALIAN, IntentType.RECIPE_RANDOM),
+                (r"(?:cosa |che cosa )?(?:posso |dovrei )?(?:cucinare|preparare|mangiare)", Language.ITALIAN, IntentType.RECIPE_RANDOM),
+                (r"suggerimento ricetta", Language.ITALIAN, IntentType.RECIPE_RANDOM),
             ],
 
             # Transport
